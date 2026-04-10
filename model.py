@@ -6,14 +6,14 @@ import random
 # =============================================================================
 MODEL_CONFIG = {
     # 1. Active Mechanisms (The Master Switches)
-    "USE_STANDING": False,  # ARG0: Indirect Reciprocity
+    "USE_STANDING": True,  # ARG0: Indirect Reciprocity
     "USE_MEMORY": False,    # ARG1: Direct Reciprocity
-    "USE_TOKENS": True,     # ARG2: Monetary Exchange
+    "USE_TOKENS": False,     # ARG2: Monetary Exchange
     
     # 2. Economic Parameters
     "BENEFIT_TO_COST_RATIO": 3,
     "COST": 1,
-    "INITIAL_LIQUIDITY": 2.0,
+    "INITIAL_LIQUIDITY": 5.0,
     
     # 3. Population Distribution
     "NUM_IGSS": 10,  # The AI Lab Rats

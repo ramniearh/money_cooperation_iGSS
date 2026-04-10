@@ -9,7 +9,7 @@ from model import CooperationModel, MODEL_CONFIG
 # =============================================================================
 EVO_CONFIG = {
     "POP_SIZE": 20,       
-    "MAX_GENS": 50,         
+    "MAX_GENS": 100,         
     "PARSIMONY_TAX": 0.1  
 }
 # =============================================================================
@@ -94,13 +94,26 @@ if __name__ == "__main__":
 
     best_rule = tools.selBest(pop, k=1)[0]
     
+    # Calculate the Theoretical Maximum Score
+    benefit = MODEL_CONFIG["BENEFIT_TO_COST_RATIO"] * MODEL_CONFIG["COST"]
+    net_profit_per_round = benefit - MODEL_CONFIG["COST"]
+    theoretical_max = MODEL_CONFIG["NUM_ROUNDS"] * net_profit_per_round
+    
+    # Calculate final metrics and indexing
+    final_max_fitness = best_rule.fitness.values[0]
+    final_avg_fitness = numpy.mean([ind.fitness.values[0] for ind in pop])
+    
+    max_efficiency = (final_max_fitness / theoretical_max) * 100
+    avg_efficiency = (final_avg_fitness / theoretical_max) * 100
+    
     # -------------------------------------------------------------------------
     # IMPROVED LAB REPORT OUTPUT
     # -------------------------------------------------------------------------
     print("\n" + "="*60)
     print("EVOLUTION COMPLETE: LAB REPORT")
     print("="*60)
-    print("MODEL CONFIGURATION:")
+    
+    print("\nMODEL CONFIGURATION:")
     for key, value in MODEL_CONFIG.items():
         print(f"  > {key}: {value}")
     
@@ -115,7 +128,10 @@ if __name__ == "__main__":
     print(f"  ARG2 (Tokens):   Partner's token balance (Integer).      Active: {MODEL_CONFIG['USE_TOKENS']}")
     print(f"  Logic Gate:      Agent cooperates if Rule Output > 0")
     print("-"*60)
-    
-    # The absolute last line
+    print("="*60)
+    print("FINAL PERFORMANCE METRICS:")
+    print(f"  > Theoretical Max Score:   {theoretical_max:.2f}")
+    print(f"  > Max Fitness (Best Rule): {final_max_fitness:.2f} ({max_efficiency:.1f}% Efficiency)")
+    print(f"  > Avg Fitness (Final Gen): {final_avg_fitness:.2f} ({avg_efficiency:.1f}% Efficiency)")
     print(f"\nBEST RULE DISCOVERED: {best_rule}")
     print("="*60)
