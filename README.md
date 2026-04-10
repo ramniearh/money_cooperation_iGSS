@@ -1,4 +1,4 @@
-# iGSS Cooperation Game: Institutional Discovery
+# iGSS Cooperation Game: Institutional Discovery (prototype)
 
 This repository contains a prototype Inverse Generative Social Science (iGSS) model. Instead of pre-programming agents with traditional game-theory strategies (like Tit-for-Tat or Image Scoring), we use Genetic Programming (GP) to let agents *discover* optimal institutional rules for cooperation.
 
