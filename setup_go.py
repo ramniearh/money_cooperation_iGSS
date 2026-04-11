@@ -11,7 +11,7 @@ from evolution import EVO_CONFIG, run_evolution
 # =============================================================================
 
 # MODE SWITCH: "VISUAL" (Displays chart with text report) or "BATCH" (Saves data silently)
-RUN_MODE = "VISUAL" 
+RUN_MODE = "BATCH" 
 
 CURRENT_MODEL_CONFIG = MODEL_CONFIG.copy()
 CURRENT_MODEL_CONFIG.update({
@@ -37,19 +37,30 @@ def save_batch_data(best_rule, history, final_pop, model_config, evo_config):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"experiment_data_{timestamp}.json"
     
-    data = {
-        "best_strategy_discovered": str(best_rule),
-        "final_max_fitness": history["max_fitness"][-1],
-        "final_avg_fitness": history["avg_fitness"][-1],
-        "model_configuration": model_config,
-        "evolution_configuration": evo_config,
-        "history": history
-    }
-    
-    with open(filename, 'w') as f:
-        json.dump(data, f, indent=4)
+    try:
+        # Convert numpy floats to native Python floats for JSON serialization
+        clean_history = {
+            "max_fitness": [float(x) for x in history["max_fitness"]],
+            "avg_fitness": [float(x) for x in history["avg_fitness"]],
+            "fossil_record": history["fossil_record"]
+        }
         
-    print(f"\n[!] Batch run complete. Data saved to {filename}")
+        data = {
+            "best_strategy_discovered": str(best_rule),
+            "final_max_fitness": float(history["max_fitness"][-1]),
+            "final_avg_fitness": float(history["avg_fitness"][-1]),
+            "model_configuration": model_config,
+            "evolution_configuration": evo_config,
+            "history": clean_history
+        }
+        
+        with open(filename, 'w') as f:
+            json.dump(data, f, indent=4)
+            
+        print(f"\n[!] BATCH SUCCESS: Data saved to {filename}")
+        
+    except Exception as e:
+        print(f"\n[X] CRITICAL ERROR saving batch data: {e}")
 
 def plot_visual_dashboard(best_rule, history, model_config, evo_config):
     """Generates a combined visual chart and text report using Matplotlib subplots."""
@@ -65,9 +76,8 @@ def plot_visual_dashboard(best_rule, history, model_config, evo_config):
     ax_plot.grid(True, alpha=0.3)
 
     # --- Right Subplot: The Lab Report ---
-    ax_text.axis('off') # Hide axes for text panel
+    ax_text.axis('off') 
     
-    # Grab all fossil records to sample evolution
     fossil_gens = sorted(history["fossil_record"].keys())
     fossils_str = "\n".join([f"  Gen {g:02d}: {history['fossil_record'][g]}" for g in fossil_gens])
     
@@ -87,7 +97,6 @@ def plot_visual_dashboard(best_rule, history, model_config, evo_config):
         f"{fossils_str}"
     )
     
-    # Place text in the right subplot
     ax_text.text(0.0, 0.95, report_text, fontsize=10, family='monospace', 
                  verticalalignment='top', transform=ax_text.transAxes, wrap=True)
     
@@ -95,20 +104,21 @@ def plot_visual_dashboard(best_rule, history, model_config, evo_config):
     plt.show()
 
 def main():
-    print(f"Starting experiment in {RUN_MODE} mode...")
+    mode = RUN_MODE.strip().upper()
+    print(f"Starting experiment in {mode} mode...")
     
     best_rule, history, final_pop = run_evolution(
         model_config=CURRENT_MODEL_CONFIG, 
         evo_config=CURRENT_EVO_CONFIG
     )
     
-    if RUN_MODE == "VISUAL":
+    if mode == "VISUAL":
         print("\n[!] Evolution complete. Launching visual dashboard...")
         plot_visual_dashboard(best_rule, history, CURRENT_MODEL_CONFIG, CURRENT_EVO_CONFIG)
-    elif RUN_MODE == "BATCH":
+    elif mode == "BATCH":
         save_batch_data(best_rule, history, final_pop, CURRENT_MODEL_CONFIG, CURRENT_EVO_CONFIG)
     else:
-        print("Error: RUN_MODE must be 'VISUAL' or 'BATCH'.")
+        print(f"\n[X] Error: RUN_MODE '{RUN_MODE}' is invalid. Must be 'VISUAL' or 'BATCH'.")
 
 if __name__ == "__main__":
     main()
