@@ -10,8 +10,8 @@ from evolution import EVO_CONFIG, run_evolution
 # Override default simulation configurations manually here prior to execution.
 # =============================================================================
 
-# MODE SWITCH: "VISUAL" (Displays chart with text report) or "BATCH" (Saves data silently)
-RUN_MODE = "BATCH" 
+# MODE SWITCH: "VISUAL" (Displays chart with text report) or "BATCH" (Saves data silently; pending parameter sweep extension)
+RUN_MODE = "VISUAL" 
 
 CURRENT_MODEL_CONFIG = MODEL_CONFIG.copy()
 CURRENT_MODEL_CONFIG.update({
