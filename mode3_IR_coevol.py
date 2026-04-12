@@ -265,6 +265,65 @@ def plot_dashboard(best_ind, history, model_config, title="Mode 3: Co-Evolutiona
     plt.tight_layout()
     plt.show()
 
+def print_mode_report(best_rule, history, model_config, mode_num=3): # Default to 3 for this script
+    """Prints a text-only report for Mode 2 (Assessment) or Mode 3 (Co-evolution)."""
+    
+    # Economics for Efficiency calculation
+    benefit = model_config.get("BENEFIT", 5) 
+    cost = model_config.get("COST", 1)
+    rounds = model_config.get("NUM_ROUNDS", 20)
+    theoretical_max = rounds * (benefit - cost)
+    
+    final_max_eff = (history["max_fitness"][-1] / theoretical_max) * 100
+    final_avg_eff = (history["avg_fitness"][-1] / theoretical_max) * 100
+
+    print("\n" + "="*50)
+    print(f"      MODE {mode_num} FINAL LAB REPORT")
+    print("="*50)
+    
+    if mode_num == 2:
+        print("--- EVOLVED ASSESSMENT RULE (SOCIAL LAW) ---")
+        # Ensure we convert the DEAP object to a string properly
+        print(f"Logic: {str(best_rule)}")
+        print("\n[Legend: ARG0=Action | ARG1=HelperStanding | ARG2=RecipientStanding]")
+    
+    elif mode_num == 3:
+        print("--- CO-EVOLVED INSTITUTION ---")
+        # In Mode 3, best_rule is [ActionTree, AssessmentTree]
+        # We call str() on each individual element
+        action_logic = str(best_rule[0])
+        assessment_logic = str(best_rule[1])
+        
+        print(f"ACTION RULE (How to play):")
+        print(f"  {action_logic}")
+        print("-" * 30)
+        print(f"ASSESSMENT RULE (How to judge):")
+        print(f"  {assessment_logic}")
+        print("\n[Action Legend: ARG0=PartnerStanding]")
+        print("[Assess Legend: ARG0=Action | ARG1=HelperStanding | ARG2=RecipientStanding]")
+
+    print(f"\n--- PERFORMANCE ---")
+    print(f"Final Max Efficiency: {final_max_eff:.1f}%")
+    print(f"Final Avg Efficiency: {final_avg_eff:.1f}%")
+    
+    print(f"\n--- FOSSIL RECORD ---")
+    for gen in sorted(history["fossil_record"].keys()):
+        fossil = history["fossil_record"][gen]
+        # If it's a list (Mode 3), print both parts clearly
+        if isinstance(fossil, list) and len(fossil) == 2:
+            print(f"  Gen {gen:02d} Action: {str(fossil[0])}")
+            print(f"  Gen {gen:02d} Assess: {str(fossil[1])}")
+            print("  " + "-"*10)
+        else:
+            print(f"  Gen {gen:02d}: {str(fossil)}")
+            
+    print("="*50 + "\n")
+
 if __name__ == "__main__":
     best_ind, history = run_evolution()
+    
+    # CRITICAL: Change mode_num to 3 here!
+    print_mode_report(best_ind, history, MODEL_CONFIG, mode_num=3)
+    
     plot_dashboard(best_ind, history, MODEL_CONFIG)
+    

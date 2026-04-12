@@ -16,8 +16,8 @@ RUN_MODE = "VISUAL"
 CURRENT_MODEL_CONFIG = MODEL_CONFIG.copy()
 CURRENT_MODEL_CONFIG.update({
     "USE_MEMORY": True,   # ARG0: Direct Reciprocity
-    "USE_STANDING": False, # ARG1: Indirect Reciprocity
-    "USE_TOKENS": False,    # ARG2: Tokens (Money)
+    "USE_STANDING": True, # ARG1: Indirect Reciprocity
+    "USE_TOKENS": True,    # ARG2: Tokens (Money)
     "NUM_IGSS": 10,
     "NUM_UC": 10,
     "NUM_D": 10,
@@ -26,8 +26,8 @@ CURRENT_MODEL_CONFIG.update({
 
 CURRENT_EVO_CONFIG = EVO_CONFIG.copy()
 CURRENT_EVO_CONFIG.update({
-    "POP_SIZE": 20,
-    "MAX_GENS": 20,
+    "POP_SIZE": 40,
+    "MAX_GENS": 50,
     "PARSIMONY_TAX": 0.1
 })
 # =============================================================================
@@ -63,7 +63,7 @@ def save_batch_data(best_rule, history, final_pop, model_config, evo_config):
         print(f"\n[X] CRITICAL ERROR saving batch data: {e}")
 
 def plot_visual_dashboard(best_rule, history, model_config, evo_config):
-    """Generates a combined visual chart and text report using Matplotlib subplots."""
+    """Generates a combined visual chart and prints a text report to the terminal."""
     fig, (ax_plot, ax_text) = plt.subplots(1, 2, figsize=(14, 6), gridspec_kw={'width_ratios': [2, 1]})
     
     # Calculate the Theoretical Maximum Payoff (Global Optimum)
@@ -75,25 +75,21 @@ def plot_visual_dashboard(best_rule, history, model_config, evo_config):
     max_efficiency = [(score / theoretical_max) * 100 for score in history["max_fitness"]]
     avg_efficiency = [(score / theoretical_max) * 100 for score in history["avg_fitness"]]
     
-    # --- Left Subplot: The Learning Curve ---
-    ax_plot.plot(max_efficiency, label='Max Efficiency (Best Strategy)', color='blue', linewidth=2)
-    ax_plot.plot(avg_efficiency, label='Avg Efficiency (Population)', color='lightblue', linestyle='--')
-    ax_plot.set_title('Evolutionary Learning Curve: iGSS Agents')
-    ax_plot.set_xlabel('Generation')
-    ax_plot.set_ylabel('Cooperation Efficiency (% of Theoretical Max)')
-    ax_plot.set_ylim(0, 105) 
-    ax_plot.legend()
-    ax_plot.grid(True, alpha=0.3)
-
-    # --- Right Subplot: The Lab Report ---
-    ax_text.axis('off') 
+    final_max_eff = max_efficiency[-1]
+    final_avg_eff = avg_efficiency[-1]
     
+    # --- Format the Text Report ---
     fossil_gens = sorted(history["fossil_record"].keys())
     fossils_str = "\n".join([f"  Gen {g:02d}: {history['fossil_record'][g]}" for g in fossil_gens])
     
     report_text = (
-        f"--- BEST STRATEGY DISCOVERED ---\n"
-        f"{str(best_rule)}\n\n"
+        f"\n========================================\n"
+        f"          FINAL LAB REPORT              \n"
+        f"========================================\n"
+        
+        f"--- PERFORMANCE ---\n"
+        f"Final Max Efficiency: {final_max_eff:.1f}%\n"
+        f"Final Avg Efficiency: {final_avg_eff:.1f}%\n\n"
         
         f"--- CONFIGURATIONS ---\n"
         f"Memory (DR)    - Active: {model_config['USE_MEMORY']} (Arg0)\n"
@@ -104,10 +100,32 @@ def plot_visual_dashboard(best_rule, history, model_config, evo_config):
         f"Evolution:   Pop: {evo_config['POP_SIZE']} | Gens: {evo_config['MAX_GENS']} | Tax: {evo_config['PARSIMONY_TAX']}\n\n"
         
         f"--- FOSSIL RECORD ---\n"
-        f"{fossils_str}"
+        f"{fossils_str}\n"
+        f"========================================\n"
+
+        f"--- BEST STRATEGY DISCOVERED ---\n"
+        f"{str(best_rule)}\n\n"
     )
     
-    ax_text.text(0.0, 0.95, report_text, fontsize=10, family='monospace', 
+    # 1. PRINT TO TERMINAL FOR EASY COPY-PASTING
+    print(report_text)
+    
+    # 2. DRAW THE LEFT SUBPLOT (CHART)
+    ax_plot.plot(max_efficiency, label='Max Efficiency (Best Strategy)', color='blue', linewidth=2)
+    ax_plot.plot(avg_efficiency, label='Avg Efficiency (Population)', color='lightblue', linestyle='--')
+    ax_plot.set_title('Evolutionary Learning Curve: iGSS Agents')
+    ax_plot.set_xlabel('Generation')
+    ax_plot.set_ylabel('Cooperation Efficiency (% of Theoretical Max)')
+    ax_plot.set_ylim(0, 105) 
+    ax_plot.legend()
+    ax_plot.grid(True, alpha=0.3)
+
+    # 3. DRAW THE RIGHT SUBPLOT (TEXT)
+    ax_text.axis('off') 
+    
+    # Strip the bounding '=' lines for the plot version to save space
+    plot_text = report_text.replace("========================================\n", "").replace("          FINAL LAB REPORT              \n", "")
+    ax_text.text(0.0, 0.95, plot_text, fontsize=9, family='monospace', 
                  verticalalignment='top', transform=ax_text.transAxes, wrap=True)
     
     plt.tight_layout()

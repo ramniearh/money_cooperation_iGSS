@@ -5,10 +5,10 @@ import random
 # MODEL CONFIGURATION (Base Defaults)
 # =============================================================================
 MODEL_CONFIG = {
-    "USE_MEMORY": False,    # ARG0: Direct Reciprocity (Moved to first)
-    "USE_STANDING": False,  # ARG1: Indirect Reciprocity
+    "USE_MEMORY": True,    # ARG0: Direct Reciprocity (Moved to first)
+    "USE_STANDING": True,  # ARG1: Indirect Reciprocity
     "USE_TOKENS": True,     # ARG2: Monetary Exchange
-    "BENEFIT_TO_COST_RATIO": 3,
+    "BENEFIT_TO_COST_RATIO": 5,
     "COST": 1,
     "INITIAL_LIQUIDITY": 2.0,
     "NUM_IGSS": 10,  

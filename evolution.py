@@ -5,7 +5,7 @@ from deap import base, creator, tools, gp
 from model import CooperationModel, MODEL_CONFIG
 
 EVO_CONFIG = {
-    "POP_SIZE": 20,       
+    "POP_SIZE": 40,       
     "MAX_GENS": 50,         
     "PARSIMONY_TAX": 0.1  
 }

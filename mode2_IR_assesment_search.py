@@ -228,6 +228,50 @@ def plot_dashboard(best_ind, history, model_config, title="Mode 2: Evolving Asse
     plt.tight_layout()
     plt.show()
 
+
+def print_mode_report(best_rule, history, model_config, mode_num=2):
+        """Prints a text-only report for Mode 2 (Assessment) or Mode 3 (Co-evolution)."""
+        
+        # Calculate Efficiency based on the Achievable Max (66.7% for mixed pop)
+        # Note: Theoretical max in Mode 2 is often capped by the presence of defectors
+        benefit = model_config.get("BENEFIT", 5) 
+        cost = model_config.get("COST", 1)
+        net_profit = benefit - cost
+        theoretical_max = 20 * net_profit # Adjust '20' if your ROUNDS changed
+        
+        final_max_eff = (history["max_fitness"][-1] / theoretical_max) * 100
+        final_avg_eff = (history["avg_fitness"][-1] / theoretical_max) * 100
+
+        print("\n" + "="*40)
+        print(f"      MODE {mode_num} FINAL LAB REPORT")
+        print("="*40)
+        
+        if mode_num == 2:
+            print("--- EVOLVED ASSESSMENT RULE (SOCIAL LAW) ---")
+            print(f"Logic: {best_rule}")
+            print("\n[Legend: ARG0=Action | ARG1=HelperStanding | ARG2=RecipientStanding]")
+        else:
+            # For Mode 3, best_rule is usually a tuple or a combined object
+            print("--- CO-EVOLVED INSTITUTION ---")
+            print(f"Action Rule: {best_rule[0]}")
+            print(f"Assessment Rule: {best_rule[1]}")
+
+        print(f"\n--- PERFORMANCE ---")
+        print(f"Final Max Efficiency: {final_max_eff:.1f}%")
+        print(f"Final Avg Efficiency: {final_avg_eff:.1f}%")
+        
+        print(f"\n--- FOSSIL RECORD ---")
+        for gen in sorted(history["fossil_record"].keys()):
+            print(f"  Gen {gen:02d}: {history['fossil_record'][gen]}")
+        print("="*40 + "\n")
+
 if __name__ == "__main__":
     best_ind, history = run_evolution()
+    
+    # CALL the function here!
+    print_mode_report(best_ind, history, MODEL_CONFIG, mode_num=2)
+    
+    # Then show the chart
     plot_dashboard(best_ind, history, MODEL_CONFIG)
+    
+    
