@@ -46,12 +46,13 @@ f(...) > 0
 * **ARG0 — Memory (Direct Reciprocity)**
   Binary indicator: `1` if the partner has defected against the focal agent in the past, `0` otherwise.
   (Implements a punishment-trigger memory rather than full interaction history.)
+  > ⚠️ Note: A value of `1` is a **danger signal** — a well-adapted rule should tend to *defect* when ARG0 is high, not cooperate.
 
 * **ARG1 — Standing (Indirect Reciprocity)**
-  Partner’s current standing (`0` or `1` in the current implementation), passed as a numeric signal.
+  Partner's current standing (`0` or `1` in the current implementation), passed as a numeric signal.
 
 * **ARG2 — Tokens (Proto-Monetary Signal)**
-  Partner’s current token balance (integer). Tokens can be transferred during cooperative interactions.
+  Partner's current token balance (integer). When cooperation occurs, the **recipient transfers one token to the helper** — tokens therefore accumulate with agents who give cooperation and are depleted in agents who receive it. A token-rich partner signals a history of cooperative giving.
 
 > Note: All inputs are provided as numeric values, allowing the GP engine to construct flexible mathematical combinations.
 
@@ -113,7 +114,7 @@ Set `RUN_MODE` in `setup_go.py`:
 
 * Displays evolutionary learning curves
 * Reports best discovered strategy
-* Shows “fossil record” of intermediate strategies
+* Shows "fossil record" of intermediate strategies
 
 ### "BATCH"
 
@@ -142,7 +143,8 @@ While the base configuration (Mode 1) focuses on evolving the *Action Rule* (how
   In this mode, the agents' economic response is hardcoded to act as "Strict Discriminators" (cooperate if partner is Good, defect if Bad). The GP engine is tasked with evolving the "justice system" (the Assessment Rule). The algorithm searches for the logical categorization required to assign a "Good" or "Bad" reputation based on observed variables (`Action`, `HelperStanding`, `RecipientStanding`).
 
 * **Mode 3: Co-Evolutionary Institutional Discovery**
-  The most complex configuration. Fully agnostic agents utilize a **dual-tree Genetic Program** to simultaneously invent *both* the economic response (Action Rule) and the social norm (Assessment Rule). This mode tests whether an evolutionary engine can endogenously discover foundational, mathematically flawless social institutions (such as the "Stern Judging" norm) from scratch when placed under sufficient environmental pressure.
+  The most complex configuration. Agents utilize a **dual-tree Genetic Program** to simultaneously evolve *both* the economic response (Action Rule) and the social norm (Assessment Rule). The Action Rule receives only the partner's standing as input; memory and token signals are not available in this mode, making it a pure IR institutional search. This mode tests whether an evolutionary engine can endogenously discover foundational IR institutions (such as the "Stern Judging" norm) from scratch when placed under sufficient environmental pressure.
+  > ⚠️ Note: Mode 3 uses a higher defector pressure (`NUM_D = 20` vs. `10` in Modes 1 and 2) to prevent indiscriminate cooperation from being rewarded. Results across modes are therefore not directly comparable in terms of environmental difficulty.
 
 ---------------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------
@@ -156,7 +158,7 @@ While the base configuration (Mode 1) focuses on evolving the *Action Rule* (how
 # ==========================================
 
 # --- 1. GLOBAL PARAMETERS & TOGGLES ---
-# Economics: Cost = 1, Benefit = 3, Initial Tokens = 2
+# Economics: Cost = 1, Benefit = 5, Initial Tokens = 2
 # Population: N = 30 (10 iGSS, 10 Unconditional Cooperators, 10 Defectors)
 # Toggles: USE_MEMORY, USE_STANDING, USE_TOKENS
 
@@ -194,7 +196,7 @@ FUNCTION evaluate_partner(Focal_Agent, Partner_Agent):
         
         IF USE_MEMORY is ACTIVE:
             IF Partner_Agent's ID is currently in Focal_Agent's Memory list:
-                Arg0_Memory = 1  # Partner previously defected against Focal Agent
+                Arg0_Memory = 1  # Partner previously defected against Focal Agent (danger signal)
                 
         IF USE_STANDING is ACTIVE:
             Arg1_Standing = Partner_Agent's current Standing  # 1 (Good) or 0 (Bad)
@@ -217,9 +219,10 @@ FUNCTION resolve_interaction(Helper, Recipient, Action):
     IF Action is COOPERATE:
         # Standard Game Theory Payoffs
         Subtract Cost (1) from Helper's cumulative payoff
-        Add Benefit (3) to Recipient's cumulative payoff
+        Add Benefit (5) to Recipient's cumulative payoff
         
         # Institutional Update: Reputation
+        # Cooperation unconditionally restores Good standing (no condition on Recipient's standing)
         Helper's Standing becomes 1 (Good)
         
         # Institutional Update: Monetary Exchange
@@ -235,7 +238,8 @@ FUNCTION resolve_interaction(Helper, Recipient, Action):
         # Institutional Update: Memory (Direct Reciprocity Blacklisting)
         Add Helper's ID to Recipient's Memory list
         
-        # Institutional Update: Forgiveness 
-        # Retaliation clears the grudge
+        # Institutional Update: Selective Forgiveness
+        # If Helper had previously blacklisted Recipient, that grievance is cleared
+        # (defecting against someone removes them from your own memory list)
         IF Recipient's ID was previously in Helper's Memory list:
             Remove Recipient's ID from Helper's Memory list
