@@ -15,9 +15,9 @@ RUN_MODE = "VISUAL"
 
 CURRENT_MODEL_CONFIG = MODEL_CONFIG.copy()
 CURRENT_MODEL_CONFIG.update({
-    "USE_MEMORY": False,   # ARG0: Direct Reciprocity
+    "USE_MEMORY": True,   # ARG0: Direct Reciprocity
     "USE_STANDING": False, # ARG1: Indirect Reciprocity
-    "USE_TOKENS": True,    # ARG2: Tokens (Money)
+    "USE_TOKENS": False,    # ARG2: Tokens (Money)
     "NUM_IGSS": 10,
     "NUM_UC": 10,
     "NUM_D": 10,
@@ -27,7 +27,7 @@ CURRENT_MODEL_CONFIG.update({
 CURRENT_EVO_CONFIG = EVO_CONFIG.copy()
 CURRENT_EVO_CONFIG.update({
     "POP_SIZE": 20,
-    "MAX_GENS": 50,
+    "MAX_GENS": 20,
     "PARSIMONY_TAX": 0.1
 })
 # =============================================================================
@@ -66,12 +66,22 @@ def plot_visual_dashboard(best_rule, history, model_config, evo_config):
     """Generates a combined visual chart and text report using Matplotlib subplots."""
     fig, (ax_plot, ax_text) = plt.subplots(1, 2, figsize=(14, 6), gridspec_kw={'width_ratios': [2, 1]})
     
+    # Calculate the Theoretical Maximum Payoff (Global Optimum)
+    benefit = model_config["BENEFIT_TO_COST_RATIO"] * model_config["COST"]
+    net_profit = benefit - model_config["COST"]
+    theoretical_max = model_config["NUM_ROUNDS"] * net_profit
+    
+    # Convert raw scores to Efficiency Percentages
+    max_efficiency = [(score / theoretical_max) * 100 for score in history["max_fitness"]]
+    avg_efficiency = [(score / theoretical_max) * 100 for score in history["avg_fitness"]]
+    
     # --- Left Subplot: The Learning Curve ---
-    ax_plot.plot(history["max_fitness"], label='Max Fitness (Best Strategy)', color='blue', linewidth=2)
-    ax_plot.plot(history["avg_fitness"], label='Avg Fitness (Population)', color='lightblue', linestyle='--')
+    ax_plot.plot(max_efficiency, label='Max Efficiency (Best Strategy)', color='blue', linewidth=2)
+    ax_plot.plot(avg_efficiency, label='Avg Efficiency (Population)', color='lightblue', linestyle='--')
     ax_plot.set_title('Evolutionary Learning Curve: iGSS Agents')
     ax_plot.set_xlabel('Generation')
-    ax_plot.set_ylabel('Fitness Score (Average Payoff)')
+    ax_plot.set_ylabel('Cooperation Efficiency (% of Theoretical Max)')
+    ax_plot.set_ylim(0, 105) 
     ax_plot.legend()
     ax_plot.grid(True, alpha=0.3)
 

@@ -15,7 +15,7 @@ def if_then(condition, output_if_true):
     else: return 0
 
 def random_constant():
-    return random.choice([-1, 0, 1])
+    return random.choice([-10, -1, 0, 1, 10])
 
 pset = gp.PrimitiveSet("MAIN", 3) 
 pset.addPrimitive(operator.add, 2)
