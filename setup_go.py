@@ -86,7 +86,8 @@ def plot_visual_dashboard(best_rule, history, model_config, evo_config):
         f"\n========================================\n"
         f"          FINAL LAB REPORT              \n"
         f"========================================\n"
-        
+        f"--- BEST STRATEGY DISCOVERED ---\n"
+        f"{str(best_rule)}\n\n"
         f"--- PERFORMANCE ---\n"
         f"Final Max Efficiency: {final_max_eff:.1f}%\n"
         f"Final Avg Efficiency: {final_avg_eff:.1f}%\n\n"
@@ -103,8 +104,7 @@ def plot_visual_dashboard(best_rule, history, model_config, evo_config):
         f"{fossils_str}\n"
         f"========================================\n"
 
-        f"--- BEST STRATEGY DISCOVERED ---\n"
-        f"{str(best_rule)}\n\n"
+
     )
     
     # 1. PRINT TO TERMINAL FOR EASY COPY-PASTING
