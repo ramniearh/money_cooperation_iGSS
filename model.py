@@ -115,3 +115,4 @@ class CooperationModel(mesa.Model):
         igss_agents = [a for a in self.agents if a.agent_type == "iGSS-Agent"]
         if not igss_agents: return 0 #maybe return float("-inf")
         return sum(a.payoff for a in igss_agents) / len(igss_agents)
+        ####THIS IS THE AVERAGE CUMULATIVE PAYOFF OF IGSS AGENTS, RIGHT?
