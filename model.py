@@ -113,5 +113,5 @@ class CooperationModel(mesa.Model):
 
     def get_igss_fitness(self):
         igss_agents = [a for a in self.agents if a.agent_type == "iGSS-Agent"]
-        if not igss_agents: return 0
+        if not igss_agents: return 0 #maybe return float("-inf")
         return sum(a.payoff for a in igss_agents) / len(igss_agents)
