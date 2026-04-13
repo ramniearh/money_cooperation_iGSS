@@ -137,7 +137,7 @@ python setup_go.py
 
 ## 🛠️ Advanced Institutional Discovery (Modes 2 & 3)
 
-While the base configuration (Mode 1) focuses on evolving the *Action Rule* (how to respond to predefined institutional signals), the repository also includes advanced configurations designed to study the endogenous emergence of the institutions themselves:
+While the base configuration (Mode 1) focuses on evolving the *Action Rule* (how to respond to predefined institutional signals), the repository also includes advanced configurations designed to study the endogenous emergence of the entire Indirect Reciprocity mechanism in a broader sense:
 
 * **Mode 2: Evolving Assessment Rules (Social Norms)**
   In this mode, the agents' economic response is hardcoded to act as "Strict Discriminators" (cooperate if partner is Good, defect if Bad). The GP engine is tasked with evolving the "justice system" (the Assessment Rule). The algorithm searches for the logical categorization required to assign a "Good" or "Bad" reputation based on observed variables (`Action`, `HelperStanding`, `RecipientStanding`).
