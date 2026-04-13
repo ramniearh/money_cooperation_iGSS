@@ -49,7 +49,7 @@ class CoopAgent(mesa.Agent):
         arg2 = partner.tokens if self.model.config["USE_TOKENS"] else 0
         
         decision_score = self.model.igss_rule(arg0, arg1, arg2)
-        return decision_score > 0
+        return decision_score > 0 #RETURNS EITHER TRUE OR FALSE
 
 class CooperationModel(mesa.Model):
     def __init__(self, igss_rule, config=MODEL_CONFIG):
@@ -76,30 +76,40 @@ class CooperationModel(mesa.Model):
         random.shuffle(agents)
 
         for i in range(0, len(agents) - 1, 2):
-            agent_A = agents[i]
-            agent_B = agents[i+1]
+            donor = agents[i]
+            recipient = agents[i+1]
 
-            a_coops = agent_A.evaluate_partner(agent_B)
-            b_coops = agent_B.evaluate_partner(agent_A)
+            donor_action = donor.evaluate_partner(recipient)
+            #b_coops = agent_B.evaluate_partner(agent_A)
 
-            self.resolve(helper=agent_A, recipient=agent_B, cooperates=a_coops)
-            self.resolve(helper=agent_B, recipient=agent_A, cooperates=b_coops)
+            self.resolve(helper=donor, 
+                         recipient=recipient, 
+                         cooperates=donor_action
+                        )
             
+            #self.resolve(helper=agent_B, recipient=agent_A, cooperates=b_coops)
+            ###NOW, AT EVERY STEP, A DECIDES TOO CCOPERATE WITH B AND B WITH A. IT IS NOT OUR STRUCTURE
+            ###MOREOVER, self.resolve(Recipient --> Donor, B --> A) is called after the action. So, no update of variables
         self.datacollector.collect(self)
 
-    def resolve(self, helper, recipient, cooperates):
-        if cooperates:
-            helper.payoff -= self.cost
+    def resolve(self, 
+                donor, 
+                recipient, 
+                cooperates
+               ):
+        if cooperates: #IF TRUE
+            donor.payoff -= self.cost
             recipient.payoff += self.benefit
-            helper.standing = 1
+            donor.standing = 1
             if self.config["USE_TOKENS"] and recipient.tokens > 0:
+                ##**IN THIS WAY, TOKENS EXCHANGE HAPPEN ONLY AFTER COOPERATION TAKES PLACE**##
                 recipient.tokens -= 1
-                helper.tokens += 1
+                donor.tokens += 1
         else:
-            if recipient.standing == 1: helper.standing = 0
-            recipient.memory.add(helper.unique_id)
-            if recipient.unique_id in helper.memory:
-                helper.memory.remove(recipient.unique_id)
+            if recipient.standing == 1: donor.standing = 0
+            recipient.memory.add(donor.unique_id)
+            if recipient.unique_id in donor.memory:
+                donor.memory.remove(recipient.unique_id)
 
     def get_igss_fitness(self):
         igss_agents = [a for a in self.agents if a.agent_type == "iGSS-Agent"]
