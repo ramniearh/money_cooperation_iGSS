@@ -1,3 +1,7 @@
+########################################
+###### I GUESS THERE IS NO ELITISM
+########################################
+
 import operator
 import random
 import numpy
