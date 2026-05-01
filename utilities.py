@@ -127,17 +127,26 @@ def generate_dashboard(best_ind, history, run_log, save_only=False):
     print(f"\n{'='*60}")
     print(f"      {mode.upper()} REPORT")
     print(f"{'='*60}")
-    print(f"--- BEST EVOLVED RULE ---")
+    # --- DYNAMIC TERMINAL REPORTING ---
     print(f"Run ID: {run_id} | Config: {run_log.get('CONFIG_GROUP', 'N/A')} | Repetition: {run_log.get('REPETITION', 'N/A')} | Seed: {run_log.get('SEED', 'N/A')}\n")
-    print(f"Raw:   {run_log.get('Best_Rule_Raw', 'N/A')}")
-    print(f"SymPy: {run_log.get('Best_Rule_SymPy', 'N/A')}")
-    print(f"Strat: {run_log.get('Identified_Strategy', 'N/A')}\n")
-    print(f"--- FINAL PERFORMANCE ---")
-    print(f"Theoretical Max: {theoretical_max}")
-    print(f"Control Baseline: {run_log.get('Control_Baseline', 0)}")
-    print(f"iGSS Max Payoff: {run_log.get('iGSS_Max_Fitness', 'N/A')}")
-    print(f"iGSS Avg Payoff: {run_log.get('iGSS_Avg_Fitness', 'N/A')}")
-    print(f"{'='*60}\n")
+    
+    # Check if this is a Co-Evolution (Mode 3) log
+    if "Best_Act_SymPy" in run_log:
+        print(f"--- BEST EVOLVED RULES ---")
+        print(f"[ACTION RULE]")
+        print(f"Raw:   {run_log.get('Best_Act_Raw', 'N/A')}")
+        print(f"SymPy: {run_log.get('Best_Act_SymPy', 'N/A')}")
+        print(f"Strat: {run_log.get('Identified_Action', 'N/A')}\n")
+        
+        print(f"[ASSESSMENT RULE]")
+        print(f"Raw:   {run_log.get('Best_Ass_Raw', 'N/A')}")
+        print(f"SymPy: {run_log.get('Best_Ass_SymPy', 'N/A')}")
+        print(f"Strat: {run_log.get('Identified_Assessment', 'N/A')}\n")
+    else:
+        print(f"--- BEST EVOLVED RULE ---")
+        print(f"Raw:   {run_log.get('Best_Rule_Raw', 'N/A')}")
+        print(f"SymPy: {run_log.get('Best_Rule_SymPy', 'N/A')}")
+        print(f"Strat: {run_log.get('Identified_Strategy', 'N/A')}\n")
 
     # Setup directories if saving locally during a batch run
     if save_only:
