@@ -46,7 +46,7 @@ DEFAULTS = {
 EXPERIMENT_GRID = {
     "BENEFIT_TO_COST_RATIO": [2, 5],            # Test low vs high temptation
     #"POP_SIZE": [40, 100],                      # Test small vs large search spaces
-     "PARSIMONY_TAX": [0.1, 0.5],             # Uncomment to sweep penalty weights
+     "PARSIMONY_TAX": [0.1],             # Uncomment to sweep penalty weights
     # "EXECUTION_ERROR_RATE": [0.0, 0.05]       # Uncomment to test noise resilience!
 }
 
