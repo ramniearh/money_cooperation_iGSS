@@ -1,0 +1,152 @@
+import json
+import numpy
+from datetime import datetime
+import matplotlib.pyplot as plt
+from model import MODEL_CONFIG
+from evolution import EVO_CONFIG, run_evolution
+
+# =============================================================================
+# EXPERIMENT PARAMETERS 
+# Override default simulation configurations manually here prior to execution.
+# =============================================================================
+
+# MODE SWITCH: "VISUAL" (Displays chart with text report) or "BATCH" (Saves data silently; pending parameter sweep extension)
+RUN_MODE = "VISUAL" 
+
+CURRENT_MODEL_CONFIG = MODEL_CONFIG.copy()
+CURRENT_MODEL_CONFIG.update({
+    "USE_MEMORY": False,   # ARG0: Direct Reciprocity
+    "USE_STANDING": True, # ARG1: Indirect Reciprocity
+    "USE_TOKENS": False,    # ARG2: Tokens (Money)
+    "NUM_IGSS": 10,
+    "NUM_UC": 10,
+    "NUM_D": 10,
+    "NUM_ROUNDS": 50
+})
+
+CURRENT_EVO_CONFIG = EVO_CONFIG.copy()
+CURRENT_EVO_CONFIG.update({
+    "POP_SIZE": 40,
+    "MAX_GENS": 50,
+    "PARSIMONY_TAX": 0.1
+})
+# =============================================================================
+
+def save_batch_data(best_rule, history, final_pop, model_config, evo_config):
+    """Saves all experimental data to a JSON file for large-scale analysis."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"experiment_data_{timestamp}.json"
+    
+    try:
+        # Convert numpy floats to native Python floats for JSON serialization
+        clean_history = {
+            "max_fitness": [float(x) for x in history["max_fitness"]],
+            "avg_fitness": [float(x) for x in history["avg_fitness"]],
+            "fossil_record": history["fossil_record"]
+        }
+        
+        data = {
+            "best_strategy_discovered": str(best_rule),
+            "final_max_fitness": float(history["max_fitness"][-1]),
+            "final_avg_fitness": float(history["avg_fitness"][-1]),
+            "model_configuration": model_config,
+            "evolution_configuration": evo_config,
+            "history": clean_history
+        }
+        
+        with open(filename, 'w') as f:
+            json.dump(data, f, indent=4)
+            
+        print(f"\n[!] BATCH SUCCESS: Data saved to {filename}")
+        
+    except Exception as e:
+        print(f"\n[X] CRITICAL ERROR saving batch data: {e}")
+
+def plot_visual_dashboard(best_rule, history, model_config, evo_config):
+    """Generates a combined visual chart and prints a text report to the terminal."""
+    fig, (ax_plot, ax_text) = plt.subplots(1, 2, figsize=(14, 6), gridspec_kw={'width_ratios': [2, 1]})
+    
+    # Calculate the Theoretical Maximum Payoff (Global Optimum)
+    benefit = model_config["BENEFIT_TO_COST_RATIO"] * model_config["COST"]
+    net_profit = benefit - model_config["COST"]
+    theoretical_max = model_config["NUM_ROUNDS"] * net_profit
+    
+    # Convert raw scores to Efficiency Percentages
+    max_efficiency = [(score / theoretical_max) * 100 for score in history["max_fitness"]]
+    avg_efficiency = [(score / theoretical_max) * 100 for score in history["avg_fitness"]]
+    
+    final_max_eff = max_efficiency[-1]
+    final_avg_eff = avg_efficiency[-1]
+    
+    # --- Format the Text Report ---
+    fossil_gens = sorted(history["fossil_record"].keys())
+    fossils_str = "\n".join([f"  Gen {g:02d}: {history['fossil_record'][g]}" for g in fossil_gens])
+    
+    report_text = (
+        f"\n========================================\n"
+        f"          FINAL LAB REPORT              \n"
+        f"========================================\n"
+        f"--- BEST STRATEGY DISCOVERED ---\n"
+        f"{str(best_rule)}\n\n"
+        f"--- PERFORMANCE ---\n"
+        f"Final Max Efficiency: {final_max_eff:.1f}%\n"
+        f"Final Avg Efficiency: {final_avg_eff:.1f}%\n\n"
+        
+        f"--- CONFIGURATIONS ---\n"
+        f"Memory (DR)    - Active: {model_config['USE_MEMORY']} (Arg0)\n"
+        f"Standing (IR)  - Active: {model_config['USE_STANDING']} (Arg1)\n"
+        f"Tokens (Money) - Active: {model_config['USE_TOKENS']} (Arg2)\n\n"
+        f"Populations: iGSS: {model_config['NUM_IGSS']} | Uncond. Coop: {model_config['NUM_UC']} | Defectors: {model_config['NUM_D']}\n"
+        f"Economics:   Cost: {model_config['COST']} | Benefit: {model_config['BENEFIT_TO_COST_RATIO']} | Liq: {model_config['INITIAL_LIQUIDITY']}\n"
+        f"Evolution:   Pop: {evo_config['POP_SIZE']} | Gens: {evo_config['MAX_GENS']} | Tax: {evo_config['PARSIMONY_TAX']}\n\n"
+        
+        f"--- FOSSIL RECORD ---\n"
+        f"{fossils_str}\n"
+        f"========================================\n"
+
+
+    )
+    
+    # 1. PRINT TO TERMINAL FOR EASY COPY-PASTING
+    print(report_text)
+    
+    # 2. DRAW THE LEFT SUBPLOT (CHART)
+    ax_plot.plot(max_efficiency, label='Max Efficiency (Best Strategy)', color='blue', linewidth=2)
+    ax_plot.plot(avg_efficiency, label='Avg Efficiency (Population)', color='lightblue', linestyle='--')
+    ax_plot.set_title('Evolutionary Learning Curve: iGSS Agents')
+    ax_plot.set_xlabel('Generation')
+    ax_plot.set_ylabel('Cooperation Efficiency (% of Theoretical Max)')
+    ax_plot.set_ylim(0, 105) 
+    ax_plot.legend()
+    ax_plot.grid(True, alpha=0.3)
+
+    # 3. DRAW THE RIGHT SUBPLOT (TEXT)
+    ax_text.axis('off') 
+    
+    # Strip the bounding '=' lines for the plot version to save space
+    plot_text = report_text.replace("========================================\n", "").replace("          FINAL LAB REPORT              \n", "")
+    ax_text.text(0.0, 0.95, plot_text, fontsize=9, family='monospace', 
+                 verticalalignment='top', transform=ax_text.transAxes, wrap=True)
+    
+    plt.tight_layout()
+    plt.show()
+
+def main():
+    mode = RUN_MODE.strip().upper()
+    print(f"Starting experiment in {mode} mode...")
+    
+    best_rule, history, final_pop = run_evolution(
+        model_config=CURRENT_MODEL_CONFIG, 
+        evo_config=CURRENT_EVO_CONFIG
+    )
+    
+    if mode == "VISUAL":
+        print("\n[!] Evolution complete. Launching visual dashboard...")
+        plot_visual_dashboard(best_rule, history, CURRENT_MODEL_CONFIG, CURRENT_EVO_CONFIG)
+    elif mode == "BATCH":
+        save_batch_data(best_rule, history, final_pop, CURRENT_MODEL_CONFIG, CURRENT_EVO_CONFIG)
+    else:
+        print(f"\n[X] Error: RUN_MODE '{RUN_MODE}' is invalid. Must be 'VISUAL' or 'BATCH'.")
+
+if __name__ == "__main__":
+    main()
