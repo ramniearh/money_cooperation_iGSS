@@ -1,7 +1,7 @@
 library(tidyverse)
 
 # Load data
-df <- read_csv("results_DR_Mode1.csv")
+df <- read_csv("results_IR_Mode2.csv")
 
 # ===================================================================================
 # CHART 1:  ABM environment parameters (Agent Counts, Duration & Benefit/Cost Ratios)
@@ -24,7 +24,7 @@ chart1_overview <- df %>%
                NUM_D = function(x) paste(x, "Defectors"),
                NUM_UC = function(x) paste(x, "Cooperators"))) +
   scale_y_continuous(labels = function(x) paste0(x * 100, "%")) +
-  scale_fill_brewer(palette = "Dark2", na.value = "gray50") +
+  #scale_fill_brewer(palette = "Dark2", na.value = "gray50") +
   labs(
     title = "Strategy Emergence Map - across ABM parameters",
     subtitle = "(unfiltered by iGSS parameters)",
@@ -69,7 +69,7 @@ chart1A_baseline <- df %>%
   # Wrap by the two economic variables
   facet_grid(BC_Label ~ Round_Label) +
   # REVISION: Restored the Dark2 professional palette
-  scale_fill_brewer(palette = "Dark2", na.value = "gray50") +
+  #scale_fill_brewer(palette = "Dark2", na.value = "gray50") +
   labs(
     title = "Evolutionary Dynamics in Baseline Ecology (10 UC / 10 D)",
     subtitle = "(unfiltered by iGSS parameters)",
@@ -126,7 +126,11 @@ chart1B_simple
 # ====================================================================
 # CHART 2: Robustness of TFT Emergence across iGSS Parameters
 # ====================================================================
-chart2_baseline_tft_igss <- df %>%
+
+
+TARGET_STRATEGY <- "Stern Judging"
+
+chart2_baseline_one_strategy <- df %>%
   # 1. Isolate the baseline ecology
   filter(
     NUM_UC == 10, 
@@ -143,7 +147,7 @@ chart2_baseline_tft_igss <- df %>%
   summarize(
     Total_Runs = n(),
     # CRITICAL FIX: na.rm = TRUE ensures the sum doesn't crash if an NA is present
-    TFT_Count = sum(Identified_Strategy == "Tit-for-Tat", na.rm = TRUE),
+    TFT_Count = sum(Identified_Strategy == TARGET_STRATEGY, na.rm = TRUE),
     TFT_Share = TFT_Count / Total_Runs,
     .groups = "drop"
   ) %>%
@@ -159,7 +163,7 @@ chart2_baseline_tft_igss <- df %>%
   # Unified the color language to match the Dark2 palette used in Chart 1
   scale_fill_brewer(palette = "Dark2") +
   labs(
-    title = "Robustness of Tit-for-Tat Emergence to iGSS parameters",
+    title = "Robustness of TARGET STRATEGY Emergence to iGSS parameters",
     subtitle = "(unfiltered by ABM parameters)",
     x = "Parsimony Tax Weight",
     y = "Share of Runs resulting in Tit-for-Tat",
@@ -172,14 +176,14 @@ chart2_baseline_tft_igss <- df %>%
     strip.text = element_text(face = "bold", size = 10)
   )
 
-chart2_baseline_tft_igss
+chart2_baseline_one_strategy
 
 
 
 # ====================================================================
 # CHART 2 VARIANT: Robustness of TFT Emergence faceted by Economics
 # ====================================================================
-chart2B_baseline_tft_igss_by_ABM <- df %>%
+chart2B_baseline_one_strategy_by_ABM <- df %>%
   # 1. Isolate the baseline ecology
   filter(
     NUM_UC == 10, 
@@ -192,7 +196,7 @@ chart2B_baseline_tft_igss_by_ABM <- df %>%
   # 3. Calculate the share of Tit-for-Tat safely
   summarize(
     Total_Runs = n(),
-    TFT_Count = sum(Identified_Strategy == "Tit-for-Tat", na.rm = TRUE),
+    TFT_Count = sum(Identified_Strategy == TARGET_STRATEGY, na.rm = TRUE),
     TFT_Share = TFT_Count / Total_Runs,
     .groups = "drop"
   ) %>%
@@ -212,7 +216,7 @@ chart2B_baseline_tft_igss_by_ABM <- df %>%
   scale_y_continuous(labels = function(x) paste0(x * 100, "%"), limits = c(0, 1)) +
   scale_fill_brewer(palette = "Dark2") +
   labs(
-    title = "Sensitivity of Tit-for-Tat Emergence to iGSS & ABM Parameters",
+    title = "Sensitivity of TARGET STRATEGY Emergence to iGSS & ABM Parameters",
     subtitle = "Ecology: 10/10/10 | Aggregated across Rule Population Sizes",
     x = "Parsimony Tax Weight",
     y = "Share of Runs resulting in Tit-for-Tat",
@@ -225,4 +229,4 @@ chart2B_baseline_tft_igss_by_ABM <- df %>%
     strip.text = element_text(face = "bold", size = 10)
   )
 
-chart2B_baseline_tft_igss_by_ABM
+chart2B_baseline_one_strategy_by_ABM
