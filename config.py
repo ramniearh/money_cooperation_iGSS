@@ -14,11 +14,11 @@ DEFAULTS = {
     "NUM_D": 10,
     "NUM_ROUNDS": 100,
     
-    # Central Bank / Scarcity (Used only in Money mode)
+    # Liquidity (Used only in Money mode)
     "INITIAL_ENDOWMENT": 1,
     "ENDOWMENT_FRACTION": 0.5,
     
-    # Future-Proofing: Noise & Trembling Hand
+    # Placeholders (not implemented): Noise & Trembling Hand
     "EXECUTION_ERROR_RATE": 0.0,
     "PERCEPTION_ERROR_RATE": 0.0,
     
@@ -44,17 +44,22 @@ DEFAULTS = {
 # E.g., testing 2 ratios * 2 population sizes = 4 total runs.
 
 EXPERIMENT_GRID = {
-    "BENEFIT_TO_COST_RATIO": [2, 5],            # Test low vs high temptation
-    #"POP_SIZE": [40, 100],                      # Test small vs large search spaces
-     "PARSIMONY_TAX": [0.1],             # Uncomment to sweep penalty weights
-    # "EXECUTION_ERROR_RATE": [0.0, 0.05]       # Uncomment to test noise resilience!
+    "BENEFIT_TO_COST_RATIO": [2, 5],            # Test low vs high benefits to cooperation            
+    "NUM_UC": [0, 10],
+    "NUM_D": [0, 10],
+    "NUM_ROUNDS": [10, 100],                    # Test shadow of the future
+
+    "POP_SIZE": [10, 100],                      # Test small vs large rule search spaces
+    "PARSIMONY_TAX": [0.1, 0.5],  
+    "TREE_MAX_DEPTH": [3, 10]
+    
 }
 
 # =============================================================================
 # 3. THE GENERATOR FUNCTION
 # =============================================================================
 # How many statistical repetitions do you want for EACH parameter combination?
-RUNS_PER_CONFIG = 2  
+RUNS_PER_CONFIG = 5  
 BASE_SEED = 42
 
 def get_experiment_batches():

@@ -294,7 +294,7 @@ if __name__ == "__main__":
         }
         
         # 4. Save and Save Dashboard (save_only=True so it doesn't interrupt the loop)
-        log_results_to_csv(run_log)
+        log_results_to_csv(run_log, filename="results_DR_Mode1.csv")
         generate_dashboard(best_rule, history, run_log, save_only=True)
         
-    print("\n[✓] Batch complete! Check results_log.csv and the /figures directory.")
+    print("\n[✓] Batch complete! Check results_DR_Mode1.csv and the /figures directory.")

@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Visual Studio Code workspace files
+*.code-workspace
+
+# RStudio user files
+.Rproj.user/
+.RData
+.Rhistory
+
+# Temporary Excel files (created when a file is open)
+~$*.xlsx
+~$*.xls
+~$*.xlsm
+
+# Figures
+figures/
+*.png
+*.jpeg
+*.jpg
