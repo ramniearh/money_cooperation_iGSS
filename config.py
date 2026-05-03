@@ -44,15 +44,15 @@ DEFAULTS = {
 # E.g., testing 2 ratios * 2 population sizes = 4 total runs.
 
 EXPERIMENT_GRID = {
+    #ABM
     "BENEFIT_TO_COST_RATIO": [2, 5],            # Test low vs high benefits to cooperation            
     "NUM_UC": [0, 10],
     "NUM_D": [0, 10],
     "NUM_ROUNDS": [10, 100],                    # Test shadow of the future
-
+    #iGSS
     "POP_SIZE": [10, 100],                      # Test small vs large rule search spaces
     "PARSIMONY_TAX": [0.1, 0.5],  
     "TREE_MAX_DEPTH": [3, 10]
-    
 }
 
 # =============================================================================
