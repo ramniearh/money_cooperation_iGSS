@@ -1,13 +1,13 @@
 # Evolution of Cooperation: Direct and Indirect Reciprocity via Genetic Programming
 
 ## Overview
-Framework to study the evolution of cooperation through Evolutionary Game Theory and inverse Generative Social Science, using `mesa` agent interactions and `deap` for evolutionary dynamics. Genetic Programming evolves agent decision rules for action (behavior) and assessment (normative judgment) under scenarios of Direct Reciprocity (DR) and Indirect Reciprocity (IR).
+Framework to study the evolution of cooperation through Evolutionary Game Theory and inverse Generative Social Science. An agent-based model with a random helping game is implemented in `mesa` and wrapped by `deap` genetic programming.Agent decision rule for action (behavior) and assessment (normative judgment) are evolved under scenarios of Direct Reciprocity (DR) and Indirect Reciprocity (IR). Further extensions include a monetary mechanism.
 
 ## Repository Structure
 
 ### 1. Core Configuration & Utilities
-* **`config.py`**: The central configuration module. It defines the baseline economic parameters (e.g., benefit-to-cost ratios, game length), evolutionary hyperparameters (e.g., population size, mutation rates, parsimony pressure), and the experimental grid for batch execution.
-* **`utilities.py`**: A suite of analytical tools. It includes functions for simplifying GP mathematical trees into symbolic expressions using `sympy`, evaluating truth tables to classify evolved strategies against known theoretical baselines (e.g., Tit-for-Tat, Image Scoring), logging experimental data, and visualizing evolutionary fitness and GP parse trees.
+* **`config.py`**: defines the baseline parameters of the helping game (e.g., benefit-to-cost ratios, game length), evolutionary hyperparameters for the genetically-programmed rules (e.g., population size, mutation rates, parsimony pressure), and the experimental grid for batch execution.
+* **`utilities.py`**: includes functions for simplifying GP mathematical trees into symbolic expressions using `sympy`, evaluating truth tables to classify evolved strategies against known theoretical baselines (e.g., Tit-for-Tat, Image Scoring), logging experimental data, and visualizing evolutionary fitness and GP parse trees.
 
 ### 2. Direct Reciprocity (DR) Modules
 These modules simulate pairwise interactions where agents rely on private memory ledgers of past encounters.
@@ -40,3 +40,21 @@ Each experimental script (e.g., `DR_mode1.py`) contains a main execution block w
 Successful execution generates the following artifacts:
 * **CSV Result Logs** (e.g., `results_DR_Mode1.csv`): Comprehensive datasets detailing hyperparameters, evolutionary performance metrics, baseline comparisons, and both the raw string and simplified symbolic representations of the dominant strategies.
 * **Visualizations** (saved to the `/figures/` directory): Line charts tracking the evolutionary trajectory of agent fitness against theoretical control baselines, alongside NetworkX-generated topological maps of the evolved mathematical rule trees.
+
+### To-do list
+Code & Architecture Fixes:
+Truth Table Optimization: 
+Replace eval() with toolbox.compile().
+Performance Bottleneck: Fix $O(N^2)$ array generation in the ABM step() function.
+Config Simplification: Split BENEFIT_TO_COST_RATIO into independent BENEFIT and COST.
+Missing Configs: Move TOURNAMENT_SIZE, CXPB, MUTPB, and a future MEMORY_LENGTH into the EXPERIMENT_GRID.
+Rename CoopAgent: Change to Actor or Player.
+Rename DR Action Rule: Change "Tit-for-Tat" in the DR_NORMS_DICT to "Private Discriminator" (or "Conditional Cooperator") to maintain theoretical consistency with the IR modules.
+
+Reporting & Paper Alignment:
+Terminology Shift (Fossil): Replace "Fossil Record" with "Evolutionary Trajectory".
+Terminology Shift (Populations): Rename POP_SIZE to RULE_GENEPOOL_SIZE or DEAP_POP_SIZE to prevent confusion with the ABM's physical agent population.
+Enhanced Dashboard: Add total Compute Time, Standard Deviation of fitness, and a full dump of all active grid parameters.
+
+Research Horizons:
+Heterogeneous Evolution: Evolve separate, competing sub-populations of iGSS agents.10. Multi-Objective Optimization (MOO): (See below).
