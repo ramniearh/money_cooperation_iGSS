@@ -42,6 +42,9 @@ Successful execution generates the following artifacts:
 * **Visualizations** (saved to the `/figures/` directory): Line charts tracking the evolutionary trajectory of agent fitness against theoretical control baselines, alongside NetworkX-generated topological maps of the evolved mathematical rule trees.
 
 ### To-do list
+
+NEXT: combined DR+IR scenario tests
+
 Code & Architecture Fixes:
 Truth Table Optimization: 
 Replace eval() with toolbox.compile().
@@ -53,8 +56,10 @@ Rename DR Action Rule: Change "Tit-for-Tat" in the DR_NORMS_DICT to "Private Dis
 
 Reporting & Paper Alignment:
 Terminology Shift (Fossil): Replace "Fossil Record" with "Evolutionary Trajectory".
+Terminology Shift: Remove terms like "Ecology" from code, dashboards, and logging.
 Terminology Shift (Populations): Rename POP_SIZE to RULE_GENEPOOL_SIZE or DEAP_POP_SIZE to prevent confusion with the ABM's physical agent population.
-Enhanced Dashboard: Add total Compute Time, Standard Deviation of fitness, and a full dump of all active grid parameters.
+Enhanced Dashboard/Terminal Reporting: Add total Compute Time, Standard Deviation of fitness, and a full dump of all active grid parameters.
 
 Research Horizons:
 Heterogeneous Evolution: Evolve separate, competing sub-populations of iGSS agents.10. Multi-Objective Optimization (MOO): (See below).
+-+ check frequency of fitness updating compared to original R&S model
