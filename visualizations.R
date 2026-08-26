@@ -1,7 +1,7 @@
 library(tidyverse)
 
 # Load data
-df <- read_csv("results_IR_Mode2.csv")
+df <- read_csv("results_DR_Mode2.csv")
 
 # ===================================================================================
 # CHART 1:  ABM environment parameters (Agent Counts, Duration & Benefit/Cost Ratios)
@@ -128,7 +128,7 @@ chart1B_simple
 # ====================================================================
 
 
-TARGET_STRATEGY <- "Stern Judging"
+TARGET_STRATEGY <- "Tit-for-tat" ###########
 
 chart2_baseline_one_strategy <- df %>%
   # 1. Isolate the baseline ecology
@@ -230,3 +230,4 @@ chart2B_baseline_one_strategy_by_ABM <- df %>%
   )
 
 chart2B_baseline_one_strategy_by_ABM
+

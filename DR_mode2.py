@@ -217,7 +217,7 @@ if __name__ == "__main__":
     
     # Truth Table Tuple Mapping for the Memory Ledger:
     # Variables: (DonorAction, DonorInMemory)
-    # Output: True = Place/Keep in Memory (Hold Grudge), False = Remove/Ignore (Forgive)
+    # Output: True = Place/Keep in Memory (Hold Grudge), False = ###!#? both? Remove/Ignore (Forgive)
     # 4 bits -> (C from Str, C from Foe, D from Str, D from Foe)
     DR_MEMORY_DICT = {
         (False, False, True, True): "Strict Ledger (TFT Base)", # Grudge if D, Forgive if C

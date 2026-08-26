@@ -226,7 +226,7 @@ if __name__ == "__main__":
     # OPTION A: SINGLE VISUAL TEST
     # Uncomment the block below to run one test and view the charts on screen.
     # -------------------------------------------------------------------------
-    """
+    
     print("\n--- RUNNING SINGLE VISUAL TEST ---")
     config = QUICK_TEST_CONFIG
     best_rule, history, control_fit = run_evolution(config)
@@ -298,3 +298,4 @@ if __name__ == "__main__":
         generate_dashboard(best_rule, history, run_log, save_only=True)
         
     print("\n[✓] Batch complete! Check results_DR_Mode1.csv and the /figures directory.")
+    """
