@@ -17,6 +17,9 @@ __pycache__/
 ~$*.xls
 ~$*.xlsm
 
+# Sweep results (SPEC §11): not committed
+outputs/
+
 # Figures
 figures/
 *.png
