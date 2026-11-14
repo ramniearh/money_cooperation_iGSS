@@ -220,11 +220,13 @@ if __name__ == "__main__":
     # Output: True = Place/Keep in Memory (Hold Grudge), False = ###!#? both? Remove/Ignore (Forgive)
     # 4 bits -> (C from Str, C from Foe, D from Str, D from Foe)
     DR_MEMORY_DICT = {
-        (False, False, True, True): "Strict Ledger (TFT Base)", # Grudge if D, Forgive if C
-        (True, True, True, True): "Paranoid (Remember Everyone)",
-        (False, False, False, False): "Amnesia (Remember No One)",
-        (False, True, True, True): "Unforgiving (Grim Trigger)", # Grudge if D, and NEVER forgive.
-        (False, True, False, True): "Sticky Memory (Ignore actions entirely)"
+        (False, False, True, True): "Tit-for-tat Ledger", # Grudge if D, Forgive if C
+        (True, True, True, True): "Always Remember",
+        (False, False, False, False): "Never Remember",
+        (False, True, False, False): "Grim Ledger", # Grudge if D, and never forgive.
+        (False, True, False, True): "Sticky Memory (Ignore actions)",
+        (True, True, False, False): "Inverted Tit-for-tat Ledger", 
+        (True, False, True, True): "Inverted Grim Ledger", 
     }
     
     variables = ["DonorAction", "DonorInMemory"]

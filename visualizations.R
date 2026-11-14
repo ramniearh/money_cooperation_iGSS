@@ -1,7 +1,8 @@
+
 library(tidyverse)
 
 # Load data
-df <- read_csv("results_DR_Mode2.csv")
+df <- read_csv("results_DR_Mode1.csv")
 
 # ===================================================================================
 # CHART 1:  ABM environment parameters (Agent Counts, Duration & Benefit/Cost Ratios)
@@ -231,3 +232,189 @@ chart2B_baseline_one_strategy_by_ABM <- df %>%
 
 chart2B_baseline_one_strategy_by_ABM
 
+
+# ====================================================================
+# PIE CHARTS: Faceted by ABM Parameters (Aggregating over iGSS)
+# ====================================================================
+chart_abm_faceted <- df %>%
+  filter(
+    NUM_UC == 10, 
+    NUM_D == 10, 
+    NUM_IGSS == 10
+  ) %>%
+  # Group only by ABM parameters and Joint Strategy
+  group_by(BENEFIT_TO_COST_RATIO, NUM_ROUNDS, Joint_Strategy) %>%
+  summarize(Count = n(), .groups = "drop") %>%
+  
+  # Lock factor levels for clean ordering
+  mutate(
+    Round_Label = factor(paste(NUM_ROUNDS, "Rounds"), levels = c("10 Rounds", "100 Rounds")),
+    BC_Label = factor(paste("B/C Ratio:", BENEFIT_TO_COST_RATIO), levels = c("B/C Ratio: 2", "B/C Ratio: 5"))
+  ) %>%
+  
+  ggplot(aes(x = "", y = Count, fill = Joint_Strategy)) +
+  geom_bar(stat = "identity", width = 1, position = "fill", color = "white", linewidth = 0.5) +
+  coord_polar(theta = "y", start = 0) +
+  
+  # Facet grid by ABM economics
+  facet_grid(BC_Label ~ Round_Label) +
+  
+  scale_fill_viridis_d(option = "turbo", na.value = "gray50") + 
+  labs(
+    title = "Strategy Discovery Space across ABM Environmental Parameters",
+    subtitle = "Aggregated across all iGSS search parameters",
+    fill = "Discovered Joint Strategy"
+  ) +
+  theme_void() + 
+  theme(
+    legend.position = "right",
+    plot.title = element_text(face = "bold", hjust = 0.5, margin = margin(b = 5, t = 10)),
+    plot.subtitle = element_text(hjust = 0.5, margin = margin(b = 15)),
+    strip.text = element_text(face = "bold", size = 10, margin = margin(b = 5, t = 5)),
+    strip.background = element_rect(fill = "gray90", color = NA)
+  )
+
+chart_abm_faceted
+
+library(tidyverse)
+
+# Load your Mode 3 data
+df <- read_csv("results_DR_Mode3.csv")
+
+# ====================================================================
+# PIE CHARTS: Faceted by iGSS Parameters (Aggregating over ABM)
+# ====================================================================
+chart_igss_faceted <- df %>%
+  filter(
+    NUM_UC == 10, 
+    NUM_D == 10, 
+    NUM_IGSS == 10
+  ) %>%
+  # Group only by iGSS genetic parameters and Joint Strategy
+  group_by(POP_SIZE, TREE_MAX_DEPTH, Joint_Strategy) %>%
+  summarize(Count = n(), .groups = "drop") %>%
+  
+  # Format labels for clean layout
+  mutate(
+    Pop_Label = factor(paste("Rule Pop Size:", POP_SIZE)),
+    Depth_Label = factor(paste("Max Tree Depth:", TREE_MAX_DEPTH))
+  ) %>%
+  
+  ggplot(aes(x = "", y = Count, fill = Joint_Strategy)) +
+  geom_bar(stat = "identity", width = 1, position = "fill", color = "white", linewidth = 0.5) +
+  coord_polar(theta = "y", start = 0) +
+  
+  # Facet grid by iGSS parameters
+  facet_grid(Depth_Label ~ Pop_Label) +
+  
+  scale_fill_viridis_d(option = "turbo", na.value = "gray50") + 
+  labs(
+    title = "Strategy Discovery Space across iGSS Genetic Parameters",
+    subtitle = "Aggregated across all ABM environmental conditions",
+    fill = "Discovered Joint Strategy"
+  ) +
+  theme_void() + 
+  theme(
+    legend.position = "right",
+    plot.title = element_text(face = "bold", hjust = 0.5, margin = margin(b = 5, t = 10)),
+    plot.subtitle = element_text(hjust = 0.5, margin = margin(b = 15)),
+    strip.text = element_text(face = "bold", size = 10, margin = margin(b = 5, t = 5)),
+    strip.background = element_rect(fill = "gray90", color = NA)
+  )
+
+chart_igss_faceted
+
+library(tidyverse)
+
+# Load your Mode 3 data
+df <- read_csv("results_DR_Mode3.csv")
+
+# ====================================================================
+# PIE CHARTS: Parsimony Tax vs. Rule Population Size
+# ====================================================================
+chart_parsimony_vs_pop <- df %>%
+  filter(
+    NUM_UC == 10, 
+    NUM_D == 10, 
+    NUM_IGSS == 10
+  ) %>%
+  # Group by Parsimony Tax, Rule Pop Size, and Joint Strategy
+  group_by(PARSIMONY_TAX, POP_SIZE, Joint_Strategy) %>%
+  summarize(Count = n(), .groups = "drop") %>%
+  
+  mutate(
+    Tax_Label = factor(paste("Parsimony Tax:", PARSIMONY_TAX)),
+    Pop_Label = factor(paste("Rule Pop Size:", POP_SIZE))
+  ) %>%
+  
+  ggplot(aes(x = "", y = Count, fill = Joint_Strategy)) +
+  geom_bar(stat = "identity", width = 1, position = "fill", color = "white", linewidth = 0.5) +
+  coord_polar(theta = "y", start = 0) +
+  
+  # Facet grid: Parsimony Tax (rows) vs. Rule Population Size (columns)
+  facet_grid(Tax_Label ~ Pop_Label) +
+  
+  scale_fill_viridis_d(option = "turbo", na.value = "gray50") + 
+  labs(
+    title = "Strategy Discovery Space: Parsimony Tax vs. Rule Population",
+    subtitle = "Aggregated across ABM conditions and Tree Depths",
+    fill = "Discovered Joint Strategy"
+  ) +
+  theme_void() + 
+  theme(
+    legend.position = "right",
+    plot.title = element_text(face = "bold", hjust = 0.5, margin = margin(b = 5, t = 10)),
+    plot.subtitle = element_text(hjust = 0.5, margin = margin(b = 15)),
+    strip.text = element_text(face = "bold", size = 10, margin = margin(b = 5, t = 5)),
+    strip.background = element_rect(fill = "gray90", color = NA)
+  )
+
+chart_parsimony_vs_pop
+
+
+library(tidyverse)
+
+# Load your Mode 3 data
+df <- read_csv("results_DR_Mode3.csv")
+
+# ====================================================================
+# PIE CHARTS: Parsimony Tax vs. Max Tree Depth
+# ====================================================================
+chart_parsimony_vs_depth <- df %>%
+  filter(
+    NUM_UC == 10, 
+    NUM_D == 10, 
+    NUM_IGSS == 10
+  ) %>%
+  # Group by Parsimony Tax, Max Tree Depth, and Joint Strategy
+  group_by(PARSIMONY_TAX, TREE_MAX_DEPTH, Joint_Strategy) %>%
+  summarize(Count = n(), .groups = "drop") %>%
+  
+  mutate(
+    Tax_Label = factor(paste("Parsimony Tax:", PARSIMONY_TAX)),
+    Depth_Label = factor(paste("Max Tree Depth:", TREE_MAX_DEPTH))
+  ) %>%
+  
+  ggplot(aes(x = "", y = Count, fill = Joint_Strategy)) +
+  geom_bar(stat = "identity", width = 1, position = "fill", color = "white", linewidth = 0.5) +
+  coord_polar(theta = "y", start = 0) +
+  
+  # Facet grid: Parsimony Tax (rows) vs. Max Tree Depth (columns)
+  facet_grid(Tax_Label ~ Depth_Label) +
+  
+  scale_fill_viridis_d(option = "turbo", na.value = "gray50") + 
+  labs(
+    title = "Strategy Discovery Space: Parsimony Tax vs. Max Tree Depth",
+    subtitle = "Aggregated across ABM conditions and Rule Population Sizes",
+    fill = "Discovered Joint Strategy"
+  ) +
+  theme_void() + 
+  theme(
+    legend.position = "right",
+    plot.title = element_text(face = "bold", hjust = 0.5, margin = margin(b = 5, t = 10)),
+    plot.subtitle = element_text(hjust = 0.5, margin = margin(b = 15)),
+    strip.text = element_text(face = "bold", size = 10, margin = margin(b = 5, t = 5)),
+    strip.background = element_rect(fill = "gray90", color = NA)
+  )
+
+chart_parsimony_vs_depth

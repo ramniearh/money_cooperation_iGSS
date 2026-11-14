@@ -259,15 +259,37 @@ if __name__ == "__main__":
     }
     
     DR_MEMORY_DICT = {
-        (False, False, True, True): "Strict Ledger (TFT Base)", 
-        (True, True, True, True): "Paranoid (Remember Everyone)",
-        (False, False, False, False): "Amnesia (Remember No One)",
-        (True, False, True, True): "Unforgiving (Grim Trigger)", 
-        (True, False, True, False): "Sticky Memory (Ignore actions entirely)" 
+        (False, False, True, True): "Tit-for-tat Ledger", 
+        (True, True, True, True): "Always Remember",
+        (False, False, False, False): "Never Remember",
+        (False, True, False, False): "Grim Ledger", 
+        (False, True, False, True): "Sticky Memory (Ignore actions)",
+        (True, True, False, False): "Inverted Tit-for-tat Ledger", 
+        (True, False, True, True): "Inverted Grim Ledger", 
     }
-    
+        
     action_vars = ["PartnerInMemory"]
     assess_vars = ["DonorAction", "DonorInMemory"]
+
+    def classify_joint_dr(act_tuple, ass_tuple):
+        """Evaluates the combined realized strategy based on the theoretical matrix."""
+        # Unconditional actions override any assessment ledger
+        if act_tuple == (True, True): return "Unconditional Cooperator"
+        if act_tuple == (False, False): return "Unconditional Defector"
+        
+        # Discriminator (Cooperate if not in memory, Defect if in memory)
+        if act_tuple == (False, True):
+            if ass_tuple == (False, False, False, False): return "Unconditional Cooperator"
+            if ass_tuple == (True, True, True, True): return "Unconditional Defector (?)"
+            if ass_tuple == (False, False, True, True): return "Tit-for-Tat"
+            if ass_tuple == (False, True, False, False): return "Grim Trigger" 
+            
+        # Anti-Discriminator (Defect if not in memory, Cooperate if in memory)
+        if act_tuple == (True, False):
+            if ass_tuple == (True, True, False, False): return "Tit-for-Tat"
+            if ass_tuple == (True, False, True, True): return "Grim Trigger"
+            
+        return "Unclassified Joint Strategy"
 
     # -------------------------------------------------------------------------
     # OPTION A: SINGLE VISUAL TEST
@@ -286,6 +308,9 @@ if __name__ == "__main__":
     simp_assessment = str(simplify_rule(str(best_rule[1]), assess_vars))
     ass_tuple = evaluate_truth_table(simp_assessment, assess_vars)
     identified_assessment = DR_MEMORY_DICT.get(ass_tuple, f"Novel Mem: {ass_tuple}")
+    
+    # Evaluate Joint Strategy
+    joint_strategy = classify_joint_dr(act_tuple, ass_tuple)
 
     run_log = {
         "Timestamp": datetime.now().strftime("%Y-%m-%d_%H-%M"),
@@ -299,6 +324,7 @@ if __name__ == "__main__":
         "Best_Ass_Raw": str(best_rule[1]),
         "Best_Ass_SymPy": simp_assessment,
         "Identified_Assessment": identified_assessment,
+        "Joint_Strategy": joint_strategy,
         "iGSS_Max_Fitness": round(history["max_igss"][-1], 2),
         "iGSS_Avg_Fitness": round(history["avg_igss"][-1], 2),
         "UC_Fitness": round(history["uc_scores"][-1], 2),
@@ -332,6 +358,9 @@ if __name__ == "__main__":
         ass_tuple = evaluate_truth_table(simp_assessment, assess_vars)
         identified_assessment = DR_MEMORY_DICT.get(ass_tuple, f"Novel Mem: {ass_tuple}")
 
+        # Evaluate Joint Strategy
+        joint_strategy = classify_joint_dr(act_tuple, ass_tuple)
+
         run_log = {
             "Timestamp": datetime.now().strftime("%Y-%m-%d_%H-%M"),
             "Machine_ID": "Local_VSCode", 
@@ -344,6 +373,7 @@ if __name__ == "__main__":
             "Best_Ass_Raw": str(best_rule[1]),
             "Best_Ass_SymPy": simp_assessment,
             "Identified_Assessment": identified_assessment,
+            "Joint_Strategy": joint_strategy,
             "iGSS_Max_Fitness": round(history["max_igss"][-1], 2),
             "iGSS_Avg_Fitness": round(history["avg_igss"][-1], 2),
             "UC_Fitness": round(history["uc_scores"][-1], 2),

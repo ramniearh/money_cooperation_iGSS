@@ -256,16 +256,42 @@ if __name__ == "__main__":
     }
 
     IR_ASSESSMENT_DICT = {
-        (True, True, False, False): "Image Scoring",     
+        (True, True, False, False): "First-order reputation ledger", 
         (True, False, False, True): "Stern Judging",     
         (True, True, False, True): "Simple Standing",    
         (True, False, False, False): "Shunning",         
-        (True, True, True, True): "Unconditional Good",
-        (False, False, False, False): "Unconditional Bad"
+        (True, True, True, True): "Always Good",
+        (False, False, False, False): "Always Bad",
+        (False, False, True, True): "Inverted First-order reputation ledger", 
+        (False, True, True, False): "Inverted Stern Judging",   
+        (False, False, True, False): "Inverted Simple Standing", 
+        (False, True, True, True): "Inverted Shunning"         
     }
     
     action_vars = ["PartnerStanding"]
     assess_vars = ["DonorAction", "RecipientStanding"]
+
+    def classify_joint_ir(act_tuple, ass_tuple):
+        """Evaluates the combined realized strategy based on the theoretical matrix."""
+        # Unconditional actions override any assessment ledger
+        if act_tuple == (True, True): return "Unconditional Cooperator"
+        if act_tuple == (False, False): return "Unconditional Defector"
+        
+        # Discriminator (Cooperate if Good, Defect if Bad)
+        if act_tuple == (True, False):
+            if ass_tuple == (False, False, False, False): return "Unconditional Defector"
+            if ass_tuple == (True, True, True, True): return "Unconditional Cooperator (?)"
+            if ass_tuple == (True, True, False, True): return "Standing"
+            if ass_tuple == (True, False, False, True): return "Stern Judging"
+            if ass_tuple == (True, True, False, False): return "First-order reputation"
+            
+        # Anti-Discriminator (Defect if Good, Cooperate if Bad)
+        if act_tuple == (False, True):
+            if ass_tuple == (False, False, True, True): return "First-order reputation"
+            if ass_tuple == (False, False, True, False): return "Standing"
+            if ass_tuple == (False, True, True, False): return "Stern Judging"
+            
+        return "Unclassified Joint Strategy"
 
     # -------------------------------------------------------------------------
     # OPTION A: SINGLE VISUAL TEST
@@ -284,6 +310,9 @@ if __name__ == "__main__":
     simp_assessment = str(simplify_rule(str(best_rule[1]), assess_vars))
     ass_tuple = evaluate_truth_table(simp_assessment, assess_vars)
     identified_assessment = IR_ASSESSMENT_DICT.get(ass_tuple, f"Novel Ass: {ass_tuple}")
+    
+    # Evaluate Joint Strategy
+    joint_strategy = classify_joint_ir(act_tuple, ass_tuple)
 
     run_log = {
         "Timestamp": datetime.now().strftime("%Y-%m-%d_%H-%M"),
@@ -297,6 +326,7 @@ if __name__ == "__main__":
         "Best_Ass_Raw": str(best_rule[1]),
         "Best_Ass_SymPy": simp_assessment,
         "Identified_Assessment": identified_assessment,
+        "Joint_Strategy": joint_strategy,
         "iGSS_Max_Fitness": round(history["max_igss"][-1], 2),
         "iGSS_Avg_Fitness": round(history["avg_igss"][-1], 2),
         "UC_Fitness": round(history["uc_scores"][-1], 2),
@@ -329,6 +359,9 @@ if __name__ == "__main__":
         simp_assessment = str(simplify_rule(str(best_rule[1]), assess_vars))
         ass_tuple = evaluate_truth_table(simp_assessment, assess_vars)
         identified_assessment = IR_ASSESSMENT_DICT.get(ass_tuple, f"Novel Ass: {ass_tuple}")
+        
+        # Evaluate Joint Strategy
+        joint_strategy = classify_joint_ir(act_tuple, ass_tuple)
 
         run_log = {
             "Timestamp": datetime.now().strftime("%Y-%m-%d_%H-%M"),
@@ -342,6 +375,7 @@ if __name__ == "__main__":
             "Best_Ass_Raw": str(best_rule[1]),
             "Best_Ass_SymPy": simp_assessment,
             "Identified_Assessment": identified_assessment,
+            "Joint_Strategy": joint_strategy,
             "iGSS_Max_Fitness": round(history["max_igss"][-1], 2),
             "iGSS_Avg_Fitness": round(history["avg_igss"][-1], 2),
             "UC_Fitness": round(history["uc_scores"][-1], 2),

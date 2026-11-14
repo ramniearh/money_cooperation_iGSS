@@ -210,12 +210,16 @@ if __name__ == "__main__":
     # Truth Table Tuple Mapping:
     # 4 bits -> (C against Good, C against Bad, D against Good, D against Bad)
     IR_ASSESSMENT_DICT = {
-        (True, True, False, False): "Image Scoring (binary)",     # Ignore recipient standing; action only
+        (True, True, False, False): "First-order reputation ledger",     # Ignore recipient standing; action only
         (True, False, False, True): "Stern Judging",     # C|G is Good, D|B is Good. Rest Bad.
         (True, True, False, True): "Simple Standing",    # C|G is Good, C|B is Good, D|B is Good.
         (True, False, False, False): "Shunning",         # Only C|G is Good. Rest Bad.
-        (True, True, True, True): "Unconditional Good",
-        (False, False, False, False): "Unconditional Bad"
+        (True, True, True, True): "Always Good",
+        (False, False, False, False): "Always Bad",
+        (False, False, True, True): "Inverted First-order reputation ledger", 
+        (False, True, True, False): "Inverted Stern Judging",   
+        (False, False, True, False): "Inverted Simple Standing", 
+        (False, True, True, True): "Inverted Shunning"         
     }
     
     variables = ["DonorAction", "RecipientStanding"]

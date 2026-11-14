@@ -140,6 +140,10 @@ def generate_dashboard(best_ind, history, run_log, save_only=True):
         report_text += f"--- BEST EVOLVED RULES ---\n"
         report_text += f"[ACTION RULE]\nRaw:   {run_log.get('Best_Act_Raw', 'N/A')}\nSymPy: {run_log.get('Best_Act_SymPy', 'N/A')}\nStrat: {run_log.get('Identified_Action', 'N/A')}\n\n"
         report_text += f"[ASSESSMENT RULE]\nRaw:   {run_log.get('Best_Ass_Raw', 'N/A')}\nSymPy: {run_log.get('Best_Ass_SymPy', 'N/A')}\nStrat: {run_log.get('Identified_Assessment', 'N/A')}\n\n"
+        
+        # Add the Joint Strategy printout for Mode 3
+        if "Joint_Strategy" in run_log:
+            report_text += f"[JOINT STRATEGY]: {run_log.get('Joint_Strategy', 'N/A')}\n\n"
     else:
         report_text += f"--- BEST EVOLVED RULE ---\n"
         report_text += f"Raw:   {run_log.get('Best_Rule_Raw', 'N/A')}\nSymPy: {run_log.get('Best_Rule_SymPy', 'N/A')}\nStrat: {run_log.get('Identified_Strategy', 'N/A')}\n\n"
