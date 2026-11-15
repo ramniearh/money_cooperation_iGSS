@@ -344,7 +344,7 @@ Modes 2 and 3 use the same two kinds of run, with 16 or 64 rules.
 4. **Selection:** a tournament of size 3, repeated P times (DEAP `selTournament`). Each time, three rules are drawn at random, with replacement, and the one with the highest selection score is kept. Among equal best, the first drawn is kept, which is a random choice because the draw order is random.
 5. **Crossover:** selected parents are paired in order. With probability 0.5, each pair exchanges a randomly chosen sub-expression (DEAP `cxOnePoint`).
 6. **Mutation:** with probability 0.2, each child has a randomly chosen sub-expression replaced by a new random one of depth 0–2 (DEAP `mutUniform`, with `genHalfAndHalf` building the new piece).
-7. **Depth limit:** any child deeper than 17 is replaced by one of its parents (DEAP `staticLimit`).
+7. **Depth limit:** any child deeper than 17 is replaced by one of its parents (DEAP `staticLimit`). The replacement arrives only in the value the operator returns, so the code must use that value; the too-deep child itself is left where it was.
 8. The children are the next generation. No rule is carried over unchanged (no elitism).
 
 **Numbering.** Generations are numbered 1 to G. Generation 1 is the initial random population. Every generation is scored and logged; every generation except G is then bred. The final generation is generation G.
@@ -573,6 +573,10 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | Per-rule logging | `rules.csv`, written every `RULES_LOG_EVERY` generations (10 in the base configuration) plus the first and last | assistant | every generation (set it to 1) |
 | Simplified form | SymPy expansion, only up to `SIMPLIFY_MAX_SIZE` nodes (50) | assistant | — |
 | Shape of `config.py` | `BASE`, `SWEEPS`, `expand_sweep`, `validate` (§11); no fallback values | assistant | — |
+| Base values of swept parameters | in `BASE`: N_C = 10, N_D = 10, b = 5, e_action = 0. These apply only in sweeps that do not vary them. | assistant | — |
+| Base seed | `BASE_SEED` = 1 | assistant | — |
+| Quick run and smoke sweep | `quick`: the base configuration for 10 generations, one seed. `smoke`: a very small sweep used by the tests. Neither produces results. | assistant | — |
+| Parallel runs | `--workers` runs several runs at once; rows are written in the same order whatever the number of workers | assistant | — |
 | Sweeps other than the first | `rounds` and `parsimony` in `config.py` are examples with placeholder values, for the authors to edit | assistant | — |
 
 **Parameters for the first sweep.**

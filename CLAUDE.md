@@ -55,6 +55,6 @@ This repository rebuilds the iGSS models of direct reciprocity (DR) and indirect
 ## Gotchas
 
 - DEAP's operators draw from Python's global `random` module. Episodes must use their own generator, following the seed scheme in SPEC §13.
-- When DEAP's `staticLimit` rejects an over-deep child, it returns one of the parents.
+- When DEAP's `staticLimit` rejects an over-deep child, it returns one of the parents. It does so only in the operator's return value: `children[i], = toolbox.mutate(children[i])`. Calling the operator and ignoring what it returns leaves the over-deep child in the population.
 - Under aggregate scoring, all P episodes of a generation share one seed. That is why rules with the same bit string get identical scores. This is intended, not a bug.
 - When no agent ever defects, `10` and `11` cannot be told apart (SPEC §6.3). Check the logged input counts before reading anything into their relative frequency.
