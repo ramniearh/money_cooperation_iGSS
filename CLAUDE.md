@@ -49,7 +49,7 @@ This repository rebuilds the iGSS models of direct reciprocity (DR) and indirect
 
 - Install: `pip install -r requirements.txt`
 - Tests: `python -m pytest`
-- One quick run: `python -m igss.run quick --model DR --scoring individual`
+- One quick run: `python -m igss.run quick --mode 1 --model DR --scoring aggregate`
 - List a sweep without running it: `python -m igss.run dry-run first`
 - Figures: `Rscript R/figures.R <sweep directory> --baseline <baseline directory>`
 
@@ -58,4 +58,5 @@ This repository rebuilds the iGSS models of direct reciprocity (DR) and indirect
 - DEAP's operators draw from Python's global `random` module. Episodes must use their own generator, following the seed scheme in SPEC §13.
 - When DEAP's `staticLimit` rejects an over-deep child, it returns one of the parents. It does so only in the operator's return value: `children[i], = toolbox.mutate(children[i])`. Calling the operator and ignoring what it returns leaves the over-deep child in the population.
 - Under aggregate scoring, all P episodes of a generation share one seed. That is why rules with the same bit string get identical scores. This is intended, not a bug.
+- In modes 2 and 3, many unnamed strategies behave exactly like a named one (SPEC §10, "A caution on unnamed"). Check table T3 and the baseline before reading anything into the share of "unnamed".
 - When no agent ever defects, `10` and `11` cannot be told apart (SPEC §6.3). Check the logged input counts before reading anything into their relative frequency.

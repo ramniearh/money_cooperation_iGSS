@@ -2,18 +2,21 @@
 #
 #   Rscript R/figures.R <sweep directory> [--baseline <baseline directory>] [--runs all | id1,id2,...]
 #
-# Reads runs.csv, generations.csv and rules.csv from the sweep directory and,
-# if given, baseline.csv from the baseline directory. Writes PNG and CSV files
-# into <sweep directory>/figures/. Nothing is computed here that is not in the
-# CSV files.
+# Reads runs.csv, generations.csv, composition.csv, rules.csv and labels.csv
+# from the sweep directory and, if given, baseline.csv from the baseline
+# directory. Writes PNG and CSV files into <sweep directory>/figures/. Nothing
+# is computed here that is not in the CSV files.
 #
-#   F1  composition over time: share of rules with each bit string, by generation
-#   F2  final composition: share of runs in which each bit string ends most common
-#   F3  baseline, rules alone: payoff per round of each rule
-#   F4  baseline, rules in pairs: payoff of X's carriers minus payoff of Y's
-#   F5  one run (only with --runs): bit-string counts and payoffs by generation
+#   F1  composition over time: share of the population with each strategy name
+#   F2  final composition: share of runs in which each strategy name ends most common
+#   F3  baseline: payoff per round of each strategy when every iGSS agent uses it
+#   F5  one run (only with --runs): composition and payoffs by generation
 #   T1  search against baseline (needs --baseline)
-#   T2  expressions behind each bit string in final generations
+#   T2  expressions behind each strategy in final generations
+#   T3  most common strategies in final generations, by bit strings
+#
+# Strategies are grouped by the name SPEC §16 gives them. The names, and the
+# key that fixes each name's colour, come from labels.csv; none is typed here.
 
 suppressPackageStartupMessages({
   library(ggplot2)
@@ -37,34 +40,18 @@ runs_wanted <- option("--runs")
 out_dir <- file.path(sweep_dir, "figures")
 dir.create(out_dir, showWarnings = FALSE)
 
-# --- Rules, labels and colours ---------------------------------------------------
+# --- Colours and theme -----------------------------------------------------------
 
-# Order and wording follow SPEC §6. Each bit string keeps its colour in every figure.
-rule_levels <- c("10", "11", "01", "00")
-# Legend text comes from labels.csv, written by the Python code from SPEC §16:
-# what each bit string does and, where the model has one assessment rule in
-# this sweep, what the literature calls the resulting strategy.
-labels_table <- read_csv(file.path(sweep_dir, "labels.csv"), show_col_types = FALSE)
-labels_for <- function(the_model) {
-  rows <- labels_table |> filter(model == the_model)
-  with_names <- n_distinct(rows$assessment_rule) == 1
-  rows <- rows |> distinct(bit_string, .keep_all = TRUE)
-  text <- paste0(sub("^TT:", "", rows$bit_string), "  ", rows$description)
-  if (with_names) {
-    named <- rows$literature_name != "unnamed"
-    text[named] <- paste0(text[named], ": ", rows$literature_name[named])
-  }
-  text <- paste0(text, ifelse(rows$canonical == 1, " (canonical)", ""))
-  c(setNames(text, sub("^TT:", "", rows$bit_string)), "tie" = "tie for most common")
-}
-rule_colours <- c("10" = "#2a78d6", "11" = "#eb6834", "01" = "#1baf7a", "00" = "#eda100",
-                  "tie" = "#898781")
+# One colour per kind of name, the same in every figure and every model. The
+# order below is the order in which names are stacked and listed; neighbouring
+# colours were checked to stay distinguishable under colour-vision deficiency.
+key_colours <- c(named_1 = "#2a78d6", cooperate = "#eb6834", named_2 = "#1baf7a",
+                 defect = "#eda100", named_3 = "#e87ba4", named_4 = "#008300",
+                 unnamed = "#898781", tie = "#c3c2b7")
+tie_label <- "tie for most common"
 surface <- "#fcfcfb"
 ink <- "#0b0b0b"
 ink_secondary <- "#52514e"
-ink_muted <- "#898781"
-
-strip_tt <- function(x) sub("^TT:", "", x)
 
 theme_igss <- function() {
   theme_minimal(base_size = 11) +
@@ -90,6 +77,29 @@ save_figure <- function(plot, name, width = 9, height = 6) {
   cat("wrote", path, "\n")
 }
 
+save_table <- function(table, name) {
+  path <- file.path(out_dir, paste0(name, ".csv"))
+  write_csv(table, path, na = "")
+  cat("wrote", path, "\n")
+}
+
+# --- Names and their colours, per model ---------------------------------------------
+
+labels_table <- read_csv(file.path(sweep_dir, "labels.csv"), show_col_types = FALSE)
+names_of <- function(the_model) {
+  rows <- labels_table |>
+    filter(model == the_model) |>
+    arrange(match(colour_key, names(key_colours)))
+  list(strategies = rows$strategy_name,
+       with_tie = c(rows$strategy_name, tie_label),
+       colours = c(setNames(key_colours[rows$colour_key], rows$strategy_name),
+                   setNames(key_colours[["tie"]], tie_label)))
+}
+fill_scale <- function(n, with_tie = FALSE) {
+  scale_fill_manual(values = n$colours, limits = if (with_tie) n$with_tie else n$strategies,
+                    drop = FALSE)
+}
+
 # --- Which parameters vary in this sweep -------------------------------------------
 
 parameter_columns <- c("n_igss", "n_c", "n_d", "b", "c", "e_action", "rounds", "pop_size",
@@ -102,7 +112,7 @@ varying <- function(data) {
   columns[vapply(columns, function(column) n_distinct(data[[column]]) > 1, logical(1))]
 }
 
-# One label per combination of the varying parameters, for example "n_c=0, n_d=10".
+# One label per combination of the varying parameters, for example "n_c=0, n_d=32".
 add_cell <- function(data, columns) {
   if (length(columns) == 0) {
     data$cell <- "base configuration"
@@ -116,88 +126,102 @@ add_cell <- function(data, columns) {
 
 # --- Read ------------------------------------------------------------------------
 
+text_columns <- cols(action_expression = "c", action_simplified = "c",
+                     assessment_expression = "c", assessment_simplified = "c")
 runs <- read_csv(file.path(sweep_dir, "runs.csv"), show_col_types = FALSE)
 generations <- read_csv(file.path(sweep_dir, "generations.csv"), show_col_types = FALSE)
-rule_rows <- read_csv(file.path(sweep_dir, "rules.csv"), show_col_types = FALSE)
+composition <- read_csv(file.path(sweep_dir, "composition.csv"), show_col_types = FALSE)
+rule_rows <- read_csv(file.path(sweep_dir, "rules.csv"), show_col_types = FALSE,
+                      col_types = text_columns)
 
 cell_columns <- varying(runs)
 runs <- add_cell(runs, cell_columns)
 generations <- add_cell(generations, cell_columns)
 n_cells <- n_distinct(runs$cell)
-n_seeds <- runs |> count(model, scoring, cell) |> pull(n) |> max()
-sweep_name <- runs$sweep[1]
-caption <- paste0("sweep '", sweep_name, "', code ", runs$code_version[1],
+n_seeds <- runs |> count(mode, model, scoring, cell) |> pull(n) |> max()
+caption <- paste0("sweep '", runs$sweep[1], "', code ", runs$code_version[1],
                   ", up to ", n_seeds, " runs per panel or bar")
+run_info <- runs |> select(run_id, mode, model, scoring, cell, pop_size, generations)
 
-counts_long <- generations |>
-  pivot_longer(starts_with("count_"), names_to = "rule", names_prefix = "count_",
-               values_to = "count") |>
-  mutate(rule = factor(rule, levels = rule_levels), share = count / pop_size)
+# Number of rules with each strategy name, per run and generation.
+by_name <- composition |>
+  group_by(run_id, generation, strategy_name) |>
+  summarise(count = sum(count), .groups = "drop")
 
-# --- F1: composition over time ------------------------------------------------------
+groups <- runs |> distinct(mode, model) |> arrange(mode, model)
 
-for (the_model in unique(generations$model)) {
-  rule_labels <- labels_for(the_model)
-  for (the_scoring in unique(generations$scoring)) {
-    data <- counts_long |>
-      filter(model == the_model, scoring == the_scoring) |>
-      group_by(cell, generation, rule) |>
-      summarise(share = mean(share), .groups = "drop")
-    if (nrow(data) == 0) next
-    plot <- ggplot(data, aes(generation, share, fill = rule)) +
+# --- F1 and F2, per mode and model ------------------------------------------------------
+
+for (g in seq_len(nrow(groups))) {
+  the_mode <- groups$mode[g]
+  the_model <- groups$model[g]
+  n <- names_of(the_model)
+  tag <- paste0("mode", the_mode, "_", the_model)
+  heading <- paste0("mode ", the_mode, ", ", the_model)
+
+  # F1: one figure per scoring option. A name absent from a generation counts as 0.
+  for (the_scoring in unique(runs$scoring)) {
+    selected <- run_info |> filter(mode == the_mode, model == the_model, scoring == the_scoring)
+    if (nrow(selected) == 0) next
+    data <- by_name |>
+      semi_join(selected, by = "run_id") |>
+      mutate(strategy_name = factor(strategy_name, levels = n$strategies)) |>
+      complete(run_id, generation, strategy_name, fill = list(count = 0)) |>
+      inner_join(selected, by = "run_id") |>
+      group_by(cell, generation, strategy_name) |>
+      summarise(share = mean(count / pop_size), .groups = "drop")
+    plot <- ggplot(data, aes(generation, share, fill = strategy_name)) +
       geom_area(colour = surface, linewidth = 0.3, show.legend = c(fill = TRUE)) +
       facet_wrap(~cell, ncol = min(4, n_cells)) +
-      scale_fill_manual(values = rule_colours, labels = rule_labels, drop = FALSE) +
+      fill_scale(n) +
       scale_y_continuous(labels = scales::percent, expand = c(0, 0)) +
       scale_x_continuous(expand = c(0, 0)) +
-      labs(title = paste0("F1. Composition over time: ", the_model, ", ", the_scoring, " scoring"),
-           subtitle = "Share of the rules with each bit string, averaged over runs",
-           x = "generation", y = "share of rules", caption = caption) +
+      labs(title = paste0("F1. Composition over time: ", heading, ", ", the_scoring, " scoring"),
+           subtitle = "Share of the population with each strategy, averaged over runs",
+           x = "generation", y = "share of the population", caption = caption) +
       theme_igss() +
       guides(fill = guide_legend(nrow = 2))
-    save_figure(plot, paste0("F1_composition_", the_model, "_", the_scoring),
+    save_figure(plot, paste0("F1_composition_", tag, "_", the_scoring),
                 width = 3 + 2.6 * min(4, n_cells), height = 2.5 + 2.2 * ceiling(n_cells / 4))
   }
-}
 
-# --- F2: final composition ---------------------------------------------------------------
-
-final <- runs |>
-  mutate(rule = ifelse(tied == 1, "tie", strip_tt(most_common)),
-         rule = factor(rule, levels = c(rule_levels, "tie")))
-
-for (the_model in unique(final$model)) {
-  rule_labels <- labels_for(the_model)
-  data <- final |>
-    filter(model == the_model) |>
-    count(scoring, cell, rule) |>
+  # F2: which name ends most common, one bar per cell.
+  data <- runs |>
+    filter(mode == the_mode, model == the_model) |>
+    mutate(name = factor(ifelse(tied == 1, tie_label, most_common_name), levels = n$with_tie)) |>
+    count(scoring, cell, name) |>
     group_by(scoring, cell) |>
     mutate(share = n / sum(n)) |>
     ungroup()
-  plot <- ggplot(data, aes(share, cell, fill = rule)) +
+  plot <- ggplot(data, aes(share, cell, fill = name)) +
     geom_col(colour = surface, linewidth = 0.6, width = 0.7, show.legend = c(fill = TRUE)) +
     facet_wrap(~scoring, labeller = as_labeller(function(x) paste(x, "scoring"))) +
-    scale_fill_manual(values = rule_colours, labels = rule_labels, drop = FALSE) +
+    fill_scale(n, with_tie = TRUE) +
     scale_x_continuous(labels = scales::percent, expand = c(0, 0)) +
     scale_y_discrete(limits = rev) +
-    labs(title = paste0("F2. Final composition: ", the_model),
-         subtitle = "Share of runs in which each bit string is the most common in the final generation",
+    labs(title = paste0("F2. Final composition: ", heading),
+         subtitle = "Share of runs in which each strategy is the most common in the final generation",
          x = "share of runs", y = NULL, caption = caption) +
     theme_igss() +
     theme(panel.grid.major.y = element_blank()) +
     guides(fill = guide_legend(nrow = 2))
-  save_figure(plot, paste0("F2_final_", the_model), width = 10, height = 2.8 + 0.35 * n_cells)
+  save_figure(plot, paste0("F2_final_", tag), width = 10, height = 2.8 + 0.35 * n_cells)
 }
 
-# --- T2: expressions behind each bit string ------------------------------------------------
+# --- T2 and T3: what is behind the names ------------------------------------------------
 
 t2 <- rule_rows |>
-  inner_join(runs |> select(run_id, model, scoring, generations), by = "run_id") |>
+  inner_join(run_info, by = "run_id") |>
   filter(generation == generations) |>
-  count(model, scoring, bit_string, simplified, name = "rules") |>
-  arrange(model, scoring, bit_string, desc(rules))
-write_csv(t2, file.path(out_dir, "T2_expressions.csv"), na = "")
-cat("wrote", file.path(out_dir, "T2_expressions.csv"), "\n")
+  count(mode, model, scoring, strategy, strategy_name, action_simplified, assessment_simplified,
+        name = "rules") |>
+  arrange(mode, model, scoring, desc(rules))
+save_table(t2, "T2_expressions")
+
+t3 <- runs |>
+  count(mode, model, scoring, cell, most_common, most_common_name, name = "runs") |>
+  arrange(mode, model, scoring, cell, desc(runs))
+save_table(t3, "T3_most_common_strategies")
 
 # --- F5: single runs, on request --------------------------------------------------------
 
@@ -207,27 +231,33 @@ if (!is.null(runs_wanted)) {
                    payoff_d = "unconditional defectors")
   for (id in ids) {
     one <- generations |> filter(run_id == id)
-    if (nrow(one) > 0) rule_labels <- labels_for(one$model[1])
-    if (nrow(one) == 0) { cat("no such run:", id, "\n"); next }
-    top <- counts_long |> filter(run_id == id) |>
-      mutate(panel = "number of rules with each bit string")
+    if (nrow(one) == 0) {
+      cat("no such run:", id, "\n")
+      next
+    }
+    n <- names_of(one$model[1])
+    top <- by_name |>
+      filter(run_id == id) |>
+      mutate(strategy_name = factor(strategy_name, levels = n$strategies)) |>
+      complete(generation, strategy_name, fill = list(count = 0)) |>
+      mutate(panel = "number of rules with each strategy")
     bottom <- one |>
       pivot_longer(c(payoff_igss, payoff_c, payoff_d), names_to = "type", values_to = "payoff") |>
       filter(!is.na(payoff)) |>
       mutate(type = factor(type_labels[type], levels = type_labels),
              panel = "payoff per round")
     plot <- ggplot() +
-      geom_area(data = top, aes(generation, count, fill = rule), colour = surface, linewidth = 0.3,
-                show.legend = c(fill = TRUE)) +
+      geom_area(data = top, aes(generation, count, fill = strategy_name), colour = surface,
+                linewidth = 0.3, show.legend = c(fill = TRUE)) +
       geom_line(data = bottom, aes(generation, payoff, linetype = type), colour = ink,
                 linewidth = 0.7) +
       facet_wrap(~panel, ncol = 1, scales = "free_y") +
-      scale_fill_manual(values = rule_colours, labels = rule_labels, drop = FALSE) +
+      fill_scale(n) +
       scale_linetype_manual(values = c("iGSS agents" = "solid", "unconditional cooperators" = "dashed",
                                        "unconditional defectors" = "dotted")) +
       labs(title = paste0("F5. One run: ", id),
-           subtitle = paste0(one$model[1], ", ", one$scoring[1], " scoring, ", one$cell[1],
-                             ", seed ", one$run_seed[1]),
+           subtitle = paste0("mode ", one$mode[1], ", ", one$model[1], ", ", one$scoring[1],
+                             " scoring, ", one$cell[1], ", seed ", one$run_seed[1]),
            x = "generation", y = NULL) +
       theme_igss() +
       theme(legend.box = "vertical") +
@@ -237,93 +267,67 @@ if (!is.null(runs_wanted)) {
   }
 }
 
-# --- Baseline: F3, F4, T1 -------------------------------------------------------------------
+# --- Baseline: F3 and T1 ----------------------------------------------------------------
 
 if (!is.null(baseline_dir)) {
-  baseline <- read_csv(file.path(baseline_dir, "baseline.csv"), show_col_types = FALSE) |>
-    mutate(rule_x = strip_tt(rule_x), rule_y = strip_tt(rule_y))
-  baseline_columns <- varying(baseline)
-  baseline <- add_cell(baseline, baseline_columns)
+  baseline <- read_csv(file.path(baseline_dir, "baseline.csv"), show_col_types = FALSE)
+  baseline <- add_cell(baseline, varying(baseline))
   n_baseline_cells <- n_distinct(baseline$cell)
   baseline_caption <- paste0("baseline for sweep '", baseline$sweep[1], "', code ",
                              baseline$code_version[1])
+  baseline_groups <- baseline |> distinct(mode, model) |> arrange(mode, model)
 
-  alone <- baseline |>
-    filter(kind == "alone") |>
-    mutate(rule_x = factor(rule_x, levels = rule_levels))
-  pairs <- baseline |> filter(kind == "pair")
-
-  for (the_model in unique(baseline$model)) {
-    rule_labels <- labels_for(the_model)
-    # F3: one box per rule; the background types' mean payoffs as marks beside them.
-    data <- alone |> filter(model == the_model)
+  # F3: one box per strategy over seeds; background types' mean payoffs as marks.
+  for (g in seq_len(nrow(baseline_groups))) {
+    the_mode <- baseline_groups$mode[g]
+    the_model <- baseline_groups$model[g]
+    n <- names_of(the_model)
+    data <- baseline |>
+      filter(mode == the_mode, model == the_model) |>
+      mutate(strategy_name = factor(strategy_name, levels = n$strategies),
+             strategy = sub("^TT:", "", strategy))
+    n_strategies <- n_distinct(data$strategy)
     background <- data |>
-      group_by(cell, rule_x) |>
+      group_by(cell, strategy) |>
       summarise(`unconditional cooperators` = mean(payoff_c),
                 `unconditional defectors` = mean(payoff_d), .groups = "drop") |>
-      pivot_longer(-c(cell, rule_x), names_to = "type", values_to = "payoff") |>
+      pivot_longer(-c(cell, strategy), names_to = "type", values_to = "payoff") |>
       filter(!is.na(payoff))
-    plot <- ggplot(data, aes(rule_x, payoff_x)) +
-      geom_boxplot(aes(fill = rule_x), colour = ink_secondary, linewidth = 0.3, width = 0.55,
-                   outlier.size = 0.8, show.legend = c(fill = TRUE)) +
-      geom_point(data = background, aes(rule_x, payoff, shape = type), colour = ink, size = 2.5) +
+    plot <- ggplot(data, aes(payoff_igss, strategy)) +
+      geom_boxplot(aes(fill = strategy_name), colour = ink_secondary, linewidth = 0.3,
+                   width = 0.6, outlier.size = 0.6, show.legend = c(fill = TRUE)) +
+      geom_point(data = background, aes(payoff, strategy, shape = type), colour = ink, size = 1.8) +
       facet_wrap(~cell, ncol = min(4, n_baseline_cells)) +
-      scale_fill_manual(values = rule_colours, labels = rule_labels, drop = FALSE) +
+      fill_scale(n) +
       scale_shape_manual(values = c(3, 4)) +
-      labs(title = paste0("F3. Baseline, rules alone: ", the_model),
-           subtitle = "Boxes: payoff per round of the iGSS agents when all carry one rule, over seeds.
-Marks: mean payoff per round of each background type.",
-           x = "rule carried by every iGSS agent", y = "payoff per round",
-           caption = baseline_caption) +
+      scale_y_discrete(limits = rev) +
+      labs(title = paste0("F3. Baseline: mode ", the_mode, ", ", the_model),
+           subtitle = paste0("Boxes: payoff per round of the iGSS agents when all use one strategy, over seeds.\n",
+                             "Marks: mean payoff per round of each background type. ",
+                             "Strategy = action rule / assessment rule."),
+           x = "payoff per round", y = NULL, caption = baseline_caption) +
       theme_igss() +
-      theme(legend.box = "vertical", panel.grid.major.x = element_blank()) +
+      theme(legend.box = "vertical", panel.grid.major.y = element_blank()) +
       guides(fill = guide_legend(nrow = 2),
              shape = guide_legend(override.aes = list(fill = NA, linetype = 0)))
-    save_figure(plot, paste0("F3_baseline_alone_", the_model),
-                width = 3 + 2.8 * min(4, n_baseline_cells),
-                height = 3.2 + 2.4 * ceiling(n_baseline_cells / 4))
-
-    # F4: payoff of X's carriers minus payoff of Y's carriers, one cell per pair.
-    data <- pairs |>
-      filter(model == the_model) |>
-      group_by(cell, rule_x, rule_y) |>
-      summarise(difference = mean(payoff_x - payoff_y), .groups = "drop") |>
-      mutate(rule_x = factor(rule_x, levels = rule_levels),
-             rule_y = factor(rule_y, levels = rule_levels))
-    limit <- max(abs(data$difference))
-    plot <- ggplot(data, aes(rule_y, rule_x, fill = difference)) +
-      geom_tile(colour = surface, linewidth = 1) +
-      geom_text(aes(label = formatC(difference, format = "f", digits = 2)), colour = ink, size = 3) +
-      facet_wrap(~cell, ncol = min(4, n_baseline_cells)) +
-      scale_fill_gradient2(low = "#eb6834", mid = "#f0efec", high = "#2a78d6", midpoint = 0,
-                           limits = c(-limit, limit), name = "X minus Y") +
-      labs(title = paste0("F4. Baseline, rules in pairs: ", the_model),
-           subtitle = "Mean payoff per round of the carriers of X minus that of the carriers of Y.
-Blue: X earns more. Orange: Y earns more.",
-           x = "rule Y", y = "rule X", caption = baseline_caption) +
-      theme_igss() +
-      theme(panel.grid.major = element_blank(), legend.title = element_text(),
-            legend.key.width = unit(1.2, "cm"))
-    save_figure(plot, paste0("F4_baseline_pairs_", the_model),
-                width = 3 + 2.6 * min(4, n_baseline_cells),
-                height = 3 + 2.2 * ceiling(n_baseline_cells / 4))
+    save_figure(plot, paste0("F3_baseline_mode", the_mode, "_", the_model),
+                width = 3 + 3 * min(4, n_baseline_cells),
+                height = 3.5 + (0.6 + 0.22 * n_strategies) * ceiling(n_baseline_cells / 4))
   }
 
   # T1: for each environment and scoring option, what the baseline shows and what the search did.
-  environment_columns <- c("model", "n_igss", "n_c", "n_d", "b", "c", "e_action", "rounds")
-  ranked <- alone |>
-    group_by(across(all_of(environment_columns)), rule_x) |>
-    summarise(payoff = mean(payoff_x), zero_read = sum(reads_zero_x) > 0, .groups = "drop")
-  baseline_view <- ranked |>
+  # Strategies that tie for the best payoff cannot be told apart in that environment.
+  environment_columns <- c("mode", "model", "n_igss", "n_c", "n_d", "b", "c", "e_action", "rounds")
+  baseline_view <- baseline |>
+    group_by(across(all_of(environment_columns)), strategy, strategy_name) |>
+    summarise(payoff = mean(payoff_igss), .groups = "drop") |>
     group_by(across(all_of(environment_columns))) |>
-    summarise(
-      best_rule_alone = paste0("TT:", paste(rule_x[payoff == max(payoff)], collapse = "+")),
-      input_zero_read_under_10 = zero_read[rule_x == "10"],
-      .groups = "drop")
+    summarise(best_alone = paste(strategy[payoff == max(payoff)], collapse = "+"),
+              best_alone_name = paste(unique(strategy_name[payoff == max(payoff)]), collapse = "+"),
+              .groups = "drop")
   t1 <- runs |>
     group_by(across(all_of(environment_columns)), scoring, cell) |>
     summarise(runs = n(), recovery_rate = mean(recovered), tie_rate = mean(tied), .groups = "drop") |>
     left_join(baseline_view, by = environment_columns)
-  write_csv(t1, file.path(out_dir, "T1_search_against_baseline.csv"), na = "")
-  cat("wrote", file.path(out_dir, "T1_search_against_baseline.csv"), "\n")
+  save_table(t1, "T1_search_against_baseline")
 }

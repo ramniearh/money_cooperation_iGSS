@@ -172,3 +172,16 @@ def test_absent_type_is_summarised_as_none():
     assert summary["payoff_c"] is None
     assert summary["coop_igss_to_c"] is None
     assert summary["payoff_d"] is not None
+
+
+def test_partner_applies_its_own_assessment_rule():
+    # Modes 2 and 3. Agent 1 (a defector) is given the rule "always 0"; agent 0 keeps the base rule.
+    # Round 1, order 0, 1:
+    #   0 -> 1: reads 1, cooperates. The partner (1) applies "always 0": standing[0] = 0.
+    #   1 -> 0: defects. The partner (0) applies the base rule: refused a 0, standing[1] = 1.
+    env = environment("IR", n_c=0, n_d=1, rounds=1)
+    agents = make_agents([rules.follow_input], n_c=0, n_d=1,
+                         background_assessment=rules.rule_from_bit_string("0000"))
+    rng = ScriptedRng(orders=[[0, 1]], partners=[0, 0], errors=[0.9, 0.9])
+    play_episode(agents, env, rng)
+    assert [agent.standing for agent in agents] == [0, 1]

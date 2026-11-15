@@ -11,16 +11,22 @@ IGSS_DIR = pathlib.Path(config.__file__).parent
 
 def test_configuration_without_scoring_fails():
     with pytest.raises(ValueError):
-        config.validate({**config.BASE, "MODEL": "DR"})
+        config.validate({**config.BASE, "MODE": 1, "MODEL": "DR"})
 
 
 def test_configuration_without_model_fails():
     with pytest.raises(ValueError):
-        config.validate({**config.BASE, "SCORING": "individual"})
+        config.validate({**config.BASE, "MODE": 1, "SCORING": "individual"})
+
+
+def test_configuration_without_mode_fails():
+    with pytest.raises(ValueError):
+        config.validate({**config.BASE, "MODEL": "DR", "SCORING": "aggregate"})
 
 
 def test_base_has_no_model_and_no_scoring():
     assert "SCORING" not in config.BASE
+    assert "MODE" not in config.BASE
     assert "MODEL" not in config.BASE
 
 
@@ -52,12 +58,12 @@ def test_first_sweep_matches_spec():
 
 def test_individual_scoring_needs_one_agent_per_rule():
     with pytest.raises(ValueError):
-        config.validate({**config.BASE, "MODEL": "DR", "SCORING": "individual", "N_IGSS": 10})
+        config.validate({**config.BASE, "MODE": 1, "MODEL": "DR", "SCORING": "individual", "N_IGSS": 10})
 
 
 def test_odd_population_fails():
     with pytest.raises(ValueError):
-        config.validate({**config.BASE, "MODEL": "DR", "SCORING": "aggregate", "POP_SIZE": 31})
+        config.validate({**config.BASE, "MODE": 1, "MODEL": "DR", "SCORING": "aggregate", "POP_SIZE": 31})
 
 
 def test_repetitions_share_run_seeds_across_cells():

@@ -4,9 +4,8 @@ This file is the single source of truth for rebuilding the iGSS code from scratc
 
 The code must match this file, and any mismatch is a bug. A change in behaviour is made here first, or in the same commit as the code, and is recorded in the change log (§18).
 
-- **Status:** v1.3, written alongside the first build of mode 1.
-  - Mode 1 is specified in full.
-  - Modes 2 and 3 are specified in outline, with their open issues listed. They will be detailed before they are coded.
+- **Status:** v1.4, written alongside the first build of modes 1, 2 and 3.
+  - Modes 1, 2 and 3 are specified and built. The main focus for now is aggregate scoring; individual scoring is built and kept as a separate question.
   - No results appear here.
 - **Every choice is listed** in the decision register (§13). A choice not written here must not be made silently in code.
   - A choice that can change which rules evolve is agreed with an author before it is coded.
@@ -25,7 +24,7 @@ The code must match this file, and any mismatch is a bug. A change in behaviour 
 **Scope of version 1.x.**
 
 - DR and IR are run as separate models. A combined model comes later.
-- Mode 1 only: the action rule evolves and the assessment rule is fixed.
+- Three modes: the action rule evolves (mode 1), the assessment rule evolves (mode 2), or both (mode 3).
 - Each action rule has one input. There are no junk inputs.
 - Execution error is the only error.
 - Rules are scored in two ways, run side by side and compared:
@@ -81,7 +80,7 @@ The search writes formulas, and the code reads off which behaviour each formula 
 
 **Repeat** for G generations. At every generation, record how many rules produce each of the four behaviours.
 
-**Before any search: the baseline.** Each of the four behaviours is run by hand, alone and in pairs. This shows in advance how each performs and which ones can be told apart.
+**Before any search: the baseline.** Each of the four behaviours is run by hand, with every iGSS agent using it. This shows in advance how each performs and which ones can be told apart.
 
 **The result.** For each environment, over many random seeds: how often each behaviour comes to dominate, compared with what the baseline predicts. The question is whether "help if the fact is 1" (the behaviour the literature calls canonical) dominates where the baseline says it should.
 
@@ -144,6 +143,7 @@ class Agent:
     payoff: float = 0.0
     records: dict[int, int] = field(default_factory=dict)  # DR: partner_id -> 0/1
     standing: int = 1                                       # IR
+    assessment_rule: Callable | None = None                 # modes 2-3; None = the base rule
 ```
 
 **Agent list.** The list given to an episode holds the iGSS agents first, then the unconditional cooperators, then the unconditional defectors. `agent_id` is the position in that list, from 0.
@@ -163,13 +163,13 @@ class Agent:
 5. Execution error: one random number is drawn in every interaction, whatever the decision. If the donor decided to cooperate and the number is below e_action, the action taken is defect. A decision to defect is never changed. This applies to every donor, background agents included.
    - Because the draw is made in every interaction, runs that differ only in e_action share the same sequence of matchings.
 6. Payoffs: if the action taken is cooperate, the donor loses c and the partner gains b.
-7. The partner applies the fixed assessment rule to the action taken. The result is stored at once, so later donors in the same round already see it.
+7. The partner applies its assessment rule to the action taken (the one fixed rule in mode 1; see §14 for modes 2 and 3). The result is stored at once, so later donors in the same round already see it.
    - DR: the partner updates its own record of the donor.
    - IR: the donor's public standing is set from the action taken and the partner's current standing (the value the donor read at step 3).
 
    This step applies to every donor, background agents included.
 
-**Encounter rate.** DR works only if pairs meet again. A given donor is matched with a given partner about R/(N−1) times per episode. With N = 96 and R = 200 (the base configuration), that is about 2 meetings per ordered pair; with no background agents (N = 32), about 6.
+**Encounter rate.** DR works only if pairs meet again. A given donor is matched with a given partner about R/(N−1) times per episode. With N = 96 and R = 400 (the base configuration), that is about 4 meetings per ordered pair; with no background agents (N = 32), about 13.
 
 **What every episode logs:**
 
@@ -268,7 +268,7 @@ The first sweep is below. Each combination is one environment, run under both sc
 | N_D | 0, 32 |
 | b/c | 2, 5 (c = 1) |
 | e_action | 0, 0.05 |
-| R | 200 |
+| R | 400 |
 
 **Known collapse.** When no agent ever defects (N_D = 0, e_action = 0, and no defecting rule present), the input is always 1. "Follow the record" or "follow the standing" then behaves exactly like "always cooperate", and the two cannot be told apart. The baseline will show where else this happens.
 
@@ -284,7 +284,7 @@ The evolutionary machinery (selection, crossover and mutation) is identical unde
 | What it rewards | doing well among other, different rules | a group in which everyone uses the rule doing well |
 | Relation to the legacy code | new | the legacy design, which had 10 copies and three episodes of 100 rounds |
 
-**How much play a score rests on.** With the base values (N_I = P = 32, R = 200, E = 1), an aggregate score rests on 6,400 donor decisions and an individual score on 200. Individual scores are therefore noisier. E is the parameter that reduces this noise.
+**How much play a score rests on.** With the base values (N_I = P = 32, R = 400, E = 1), an aggregate score rests on 12,800 donor decisions and an individual score on 400. Individual scores are therefore noisier. E is the parameter that reduces this noise.
 
 **Same random seeds within a generation (aggregate scoring).** The E episodes of every rule in one generation use the same E seeds, so differences in score come from the rules, not from luck in matching. A side effect: rules with the same bit string get exactly the same score, so each distinct bit string needs simulating only once per generation.
 
@@ -307,22 +307,22 @@ Where the two options agree and where they differ is itself a result.
 
 ## 8. The baseline
 
-The baseline has no search and no generations. Rules are assigned by hand, one episode is played, and this is repeated over many seeds. There are two kinds of run, for every environment:
+The baseline has no search and no generations. A strategy is assigned by hand to every iGSS agent, one episode is played with the background agents, and this is repeated over `BASELINE_SEEDS` seeds, for every environment.
 
-| Run | Set-up (mode 1: 4 rules) | What it shows |
-| --- | --- | --- |
-| **Alone** | All N_I iGSS agents use rule X, plus the background agents. 4 sets of runs. | How X performs by itself: payoff, cooperation rates, which input values occur. This is also exactly X's **aggregate score**. |
-| **In pairs** | The first half of the iGSS agents (by `agent_id`) use X, the second half use Y. 6 sets of runs. | Which of the two earns more when they meet. This is what **individual scoring** responds to. |
+- This is exactly what **aggregate scoring** measures: a strategy among copies of itself, in an environment of unconditional cooperators and defectors. A baseline episode and an aggregate-scoring episode with the same seed give the same payoff.
+- It shows, before any search, how each strategy performs in each environment: payoff, cooperation rates and which input values occur.
 
-The baseline is a command of its own (§11). It is run once for the environments of a sweep and written to its own file; search runs never recompute it. In the baseline each rule is the named predicate of `rules.py`, used directly as the agents' action rule.
+| Mode | Strategies in the baseline |
+| --- | --- |
+| 1 | the 4 action rules, with the base assessment rule |
+| 2 | action rule `10` with each of the 16 assessment rules |
+| 3 | every pair, counted by class (§14.3): 34 |
 
-**Telling rules apart.** Each episode logs which input values the iGSS agents actually read. Suppose an input value never occurs in an environment, for example input 0 when nobody ever defects. Rules that differ only in what they do on that value then behave identically there and cannot be told apart.
+**Telling strategies apart.** Each episode logs which input values the iGSS agents actually read. Suppose an input value never occurs in an environment, for example input 0 when nobody ever defects. Rules that differ only in what they do on that value then behave identically there and cannot be told apart. Because every strategy is run on the same seeds, strategies that cannot be told apart get exactly equal payoffs; table T1 (§10) lists the strategies that tie for the best payoff.
 
-**Why there are runs in pairs.** Under aggregate scoring a rule is only ever tested in a group of its own copies, which is what a run alone reproduces. Under individual scoring the rules of one generation play in the same episode and compete with each other, so what matters is how a rule does *against* others, which no run alone can show: a group of defectors earns little alone, yet a defector among cooperators earns more than they do. A run in pairs is the simplest mixed group. The even split is one arbitrary mixture among many; a rare-invader mixture (one agent with X among Y) is an alternative to consider (§13).
+The baseline is a command of its own (§11). It is run once for the environments of a sweep and written to its own file; search runs never recompute it. In the baseline each action rule is the named predicate of `rules.py`, used directly.
 
-The two kinds of run predict the two scoring options: runs alone predict aggregate scoring, and runs in pairs predict individual scoring. The same runs check search results afterwards: any rule the search returns can be rerun alone and in pairs.
-
-Modes 2 and 3 use the same two kinds of run, with 16 or 64 rules.
+**No runs in pairs.** Earlier versions also ran pairs of rules, half the iGSS agents each, as a predictor for individual scoring. The even split was arbitrary and the runs were removed (v1.4). How rules fare against each other is what individual scoring itself tests; a baseline for it (for example one agent with rule X among agents with rule Y) is left open (§13).
 
 ## 9. The search
 
@@ -385,35 +385,36 @@ The result of a run is the composition of the population over time, plus the exp
 | File | One row per | Columns |
 | --- | --- | --- |
 | `runs.csv` | run | the parameter columns; the columns of the final generation's row in `generations.csv`; `tied`; `recovered` |
-| `generations.csv` | generation of a run | the parameter columns; `generation`; `count_11`, `count_10`, `count_01`, `count_00`; `most_common`; `most_common_name`; `mean_size`; `payoff_igss`, `payoff_c`, `payoff_d`; `coop_rate`, `coop_igss`, `coop_igss_to_igss`, `coop_igss_to_c`, `coop_igss_to_d`; `reads_one`, `reads_zero` |
-| `rules.csv` | rule in a logged generation | `run_id`, `generation`, `rule_index`, `expression`, `simplified`, `size`, `height`, `bit_string`, `score`, `selection_score` |
-| `labels.csv` (in every output directory) | model, assessment rule and bit string | `model`, `assessment_rule`, `bit_string`, `description`, `literature_name`, `canonical` |
-| `baseline.csv` (written by the baseline command, in its own directory) | baseline episode | the environment columns; `kind` (`alone` or `pair`); `rule_x`, `rule_y`; `seed_index`; `payoff_x`, `payoff_y`, `payoff_c`, `payoff_d`; `coop_x`, `coop_y`; `reads_one_x`, `reads_zero_x`, `reads_one_y`, `reads_zero_y` |
+| `generations.csv` | generation of a run | the parameter columns; `generation`; `most_common`; `most_common_name`; `most_common_count`; `mean_size`; `payoff_igss`, `payoff_c`, `payoff_d`; `coop_rate`, `coop_igss`, `coop_igss_to_igss`, `coop_igss_to_c`, `coop_igss_to_d`; `reads_one`, `reads_zero` |
+| `composition.csv` | strategy present in a generation of a run | `run_id`, `generation`, `strategy`, `strategy_name`, `count` |
+| `rules.csv` | rule in a logged generation | `run_id`, `generation`, `rule_index`, `strategy`, `strategy_name`, `action_expression`, `action_simplified`, `assessment_expression`, `assessment_simplified`, `size`, `height`, `score`, `selection_score` |
+| `labels.csv` (in every output directory) | model and strategy name | `model`, `strategy_name`, `colour_key`, `named_reciprocity` |
+| `baseline.csv` (written by the baseline command, in its own directory) | baseline episode | the environment columns; `strategy`; `strategy_name`; `seed_index`; then the same payoff, cooperation and read columns as `generations.csv` |
 
-- **Parameter columns:** `sweep`, `run_id`, `code_version`, `run_seed`, `scoring`, and every parameter of the configuration in lower case (`model`, `assessment_rule`, `n_igss`, `n_c`, `n_d`, `b`, `c`, `e_action`, `rounds`, `pop_size`, `generations`, and so on). Every row therefore records the environment, the scoring option and the seed.
+- **Parameter columns:** `sweep`, `run_id`, `code_version`, `run_seed`, `mode`, `scoring`, and every parameter of the configuration in lower case (`model`, `assessment_rule`, `n_igss`, `n_c`, `n_d`, `b`, `c`, `e_action`, `rounds`, `pop_size`, `generations`, and so on). Every row therefore records the environment, the scoring option and the seed. `assessment_rule` is the base rule of the model.
 - `run_id` is unique within a sweep. `code_version` is the git commit of the code, with `+changes` added when the working copy differs from it.
-- Bit strings are stored with a `TT:` prefix so that leading zeros survive spreadsheet software.
+- **Strategies.** A strategy is written as `TT:<action rule>/<assessment rule>`, for example `TT:10/1100`. The prefix keeps leading zeros safe in spreadsheet software. Where the action rule is `11` or `00` the assessment rule cannot matter and is written `any` (§14.3): `TT:11/any`. In mode 1 the assessment rule shown is the base rule.
+- **Where the canonical strategies appear.** `strategy_name` and `most_common_name` give the literature's name (§16) for a strategy: "Tit-for-Tat", "Grim Trigger", "Standing", "Image Scoring", "Stern Judging", "Shunning", "unconditional cooperation", "unconditional defection", or "unnamed". `labels.csv` lists the names possible in each model; the figures take their legends and colours from it.
+- `most_common` is the most common strategy of the generation and `most_common_count` the number of rules that have it. If several tie, all are given, joined by `+`. `tied` is 1 when that happens in the final generation.
+- `recovered` is 1 when one strategy alone is the most common in the final generation and §16 names it as a reciprocity strategy of that model. In mode 1 this means `10` with the base assessment rule.
+- In `rules.csv` an expression column is empty when that rule does not evolve in the run's mode. `size` counts the nodes of all evolved expressions; `height` is that of the deepest.
 - Payoffs are per round. Under aggregate scoring, the per-generation payoffs, rates and read counts are averages over the P rules' episodes.
 - `coop_…` columns are shares of interactions in which the donor cooperated (action taken). `reads_one` and `reads_zero` are the number of times iGSS donors read each input value, per episode.
 - **A type with no agents has empty cells.** When N_C = 0, `payoff_c` and `coop_igss_to_c` are empty, and likewise for N_D. R reads an empty cell as `NA`, so such rows drop out of means and charts and are never mistaken for a payoff of 0.
-- `most_common` is the most common bit string of the generation. If several tie, all are given, joined by `+`. `tied` is 1 when that happens in the final generation.
-- `recovered` is 1 when `10` alone is the most common bit string of the final generation.
-- **Where the canonical strategies appear.** `most_common_name` gives the literature's name (§16) for the strategy formed by the most common action rule and the run's assessment rule: for example "Tit-for-Tat" for `10` in DR with `1100`, "Standing" for `10` in IR with `1101`, or "unnamed". `labels.csv` lists, for each model in the sweep, what each bit string does, its literature name and whether it is the canonical rule. The figures take their legends from it.
-- `simplified` is SymPy's expansion of the expression, for reading only. It is left empty for an expression with more than `SIMPLIFY_MAX_SIZE` nodes, because expanding very large expressions is slow.
+- `…_simplified` is SymPy's expansion of the expression, for reading only. It is left empty when the rule has more than `SIMPLIFY_MAX_SIZE` nodes, because expanding very large expressions is slow.
 - Numbers are written unrounded.
 
-**How to read `baseline.csv`.** Each row is one episode with rules assigned by hand.
+**How to read `baseline.csv`.** Each row is one episode in which every iGSS agent uses the strategy in `strategy`.
 
-- In an `alone` row every iGSS agent uses rule `rule_x`. `payoff_x` is what those agents earned per round, and `coop_x` is the share of their turns as donor in which they cooperated. The `_y` columns are empty.
-- In a `pair` row half the iGSS agents use `rule_x` and half use `rule_y`, in the same episode. `payoff_x` and `payoff_y` are what each half earned per round; `coop_x` and `coop_y` are how often each half cooperated. `payoff_x` above `payoff_y` means X's carriers did better than Y's when the two were mixed.
-- `payoff_c` and `payoff_d` are what the unconditional cooperators and unconditional defectors earned per round in that episode (empty if there are none).
-- `reads_one_x` and `reads_zero_x` count how often X's carriers read input 1 and input 0. If `reads_zero_x` is 0 everywhere, rules that differ only on input 0 cannot be told apart in that environment.
+- `payoff_igss` is what the iGSS agents earned per round; `payoff_c` and `payoff_d` are what the unconditional cooperators and unconditional defectors earned per round in that episode (empty if there are none).
+- `coop_igss` is the share of the iGSS agents' turns as donor in which they cooperated; `coop_igss_to_c`, for example, is that share when the partner was an unconditional cooperator.
+- `reads_one` and `reads_zero` count how often an iGSS agent, about to decide, found its input to be 1 or 0: in DR, whether the partner in front of it cooperated with it last time; in IR, the partner's standing. If `reads_zero` is 0, no iGSS agent ever met a partner with a 0, so rules that differ only in what they do on a 0 (`10` and `11`) acted identically.
 
-**Main output.** For each environment and scoring option, over 50 seeds: how many rules have each bit string, at the end of each run and over its course. In mode 1 each bit string is one strategy. The expressions behind each bit string are reported alongside.
+**Main output.** For each environment and scoring option, over 50 seeds: how many rules have each strategy, at the end of each run and over its course. The expressions behind each strategy are reported alongside.
 
 **The canonical rule** is `10` in both models. It is marked in the output. It is fixed in advance only so that it is clear beforehand which outcome counts as finding the canonical strategy. It changes nothing that is run or measured.
 
-**Recovery rate.** The share of runs in which `10` is the most common bit string in the final generation. A tie for most common does not count as recovery; ties are reported separately.
+**Recovery rate.** The share of runs with `recovered` = 1. A tie for most common does not count as recovery; ties are reported separately.
 
 **Comparing search with baseline.** When the search does not return `10`, the baseline shows why. Only the last case in the table below counts against iGSS.
 
@@ -432,20 +433,24 @@ The numbers in this table are illustrative, not results.
 Rscript R/figures.R <sweep directory> [--baseline <baseline directory>] [--runs all | id1,id2,...]
 ```
 
-Rules are shown by bit string, each with a fixed colour, and `10` is marked as canonical. Panels and bars are labelled by the parameters that vary in the sweep (for example `n_c=0, n_d=10`), so the same script serves any sweep. Literature names do not appear in the figures at present.
+Strategies are grouped and coloured by their literature name (§16), each name with a fixed colour. Panels and bars are labelled by the parameters that vary in the sweep (for example `n_c=0, n_d=32`), so the same script serves any sweep and any mode. Figures are drawn separately for each mode and model.
 
 | Figure | Shows | Data | Grouping |
 | --- | --- | --- | --- |
-| F1. Composition over time | For each generation, the share of the P rules with each bit string, averaged over seeds, as stacked areas. | `generations.csv`: `generation`, `count_…`. | One panel per environment; one figure per model and scoring option. |
-| F2. Final composition | The share of runs in which each bit string is the most common in the final generation, as stacked bars; ties are shown as their own category. The share for `10` is the recovery rate. | `runs.csv`: `most_common`, `tied`. | One bar per combination of the varying parameters. One figure per model, the two scoring options side by side. |
-| F3. Baseline, rules alone | The payoff per round of the iGSS agents when all carry one rule, as one box per rule over seeds, with the mean payoff of each background type marked. | `baseline.csv`, `kind = alone`. | One panel per environment; one figure per model. |
-| F4. Baseline, rules in pairs | For each pair of rules X and Y, `payoff_x − payoff_y`, as a grid of cells. | `baseline.csv`, `kind = pair`. | One grid per environment; one figure per model. |
-| F5. One run | By generation: the count of each bit string, and the payoff per round of the iGSS agents and of each background type. | `generations.csv`, one `run_id`. | One figure per run, only with `--runs`. |
+| F1. Composition over time | For each generation, the share of the P rules with each strategy name, averaged over seeds, as stacked areas. | `composition.csv`. | One panel per combination of the varying parameters; one figure per scoring option. |
+| F2. Final composition | The share of runs in which each strategy name is the most common in the final generation, as stacked bars; ties are their own category. | `runs.csv`: `most_common_name`, `tied`. | One bar per combination of the varying parameters; the two scoring options side by side. |
+| F3. Baseline | The payoff per round of the iGSS agents when all use one strategy, as one box per strategy over seeds, with the mean payoff of each background type marked. | `baseline.csv`. | One panel per environment. |
+| F5. One run | By generation: the number of rules with each strategy name, and the payoff per round of the iGSS agents and of each background type. | `composition.csv` and `generations.csv`, one `run_id`. | One figure per run, only with `--runs`. |
+
+There is no F4: it showed the runs in pairs, which were removed in v1.4.
 
 | Table | Shows | Data |
 | --- | --- | --- |
-| T1. Search against baseline | For each environment and scoring option: the recovery rate and the share of ties; the rule with the highest payoff alone; and whether input 0 was ever read when every iGSS agent used `10` (if not, `10` and `11` cannot be told apart there). | `baseline.csv` and `runs.csv`. |
-| T2. Expressions behind each bit string | For each bit string, the distinct simplified expressions in final generations and how many rules had each. | `rules.csv`, final generation. |
+| T1. Search against baseline | For each environment and scoring option: the recovery rate and the share of ties; and the strategies with the highest payoff in the baseline. Strategies listed together there cannot be told apart in that environment. | `baseline.csv` and `runs.csv`. |
+| T2. Expressions behind each strategy | For each strategy, the distinct simplified expressions in final generations and how many rules had each. | `rules.csv`, final generation. |
+| T3. Most common strategies | For each combination of parameters, which strategies (by bit strings, not only by name) ended most common, and in how many runs. | `runs.csv`. |
+
+**A caution on "unnamed".** In modes 2 and 3 many unnamed strategies behave exactly like a named one. For example, with stored values starting at 1, the assessment rules `1111`, `1110`, `1011` and `1010` never produce a 0 (§14.2), so `10` with any of them acts as unconditional cooperation. F1 and F2 group by name and so show these as "unnamed"; T1 and T3 and the baseline (F3) show which strategies are behaviourally the same.
 
 ## 11. Build plan for mode 1
 
@@ -467,14 +472,14 @@ outputs/         sweep results; not committed
 | `rules.py` | Input names, row order, every named rule as a predicate, and the function that turns a compiled expression into a bit string. |
 | `episode.py` | The `Agent` definition and `play_episode`. |
 | `scoring.py` | `score_individual` and `score_aggregate`. |
-| `baseline.py` | The alone and in-pairs runs. |
+| `baseline.py` | The baseline: each strategy alone. |
 | `search.py` | The evolution loop. |
 | `config.py` | Every parameter and environment. Every parameter is read by the code; a parameter that does nothing is a bug. |
 | `run.py` | Command-line entry point: one quick run, a full sweep, the baseline for a sweep, or a dry run listing what would be run. It also writes the CSV files of §10. |
 
 **`config.py`.** It is a plain Python module with three parts:
 
-- `BASE`: one dictionary holding every parameter except `MODEL` and `SCORING`, which have no base value and must be given by a sweep or on the command line;
+- `BASE`: one dictionary holding every parameter except `MODE`, `MODEL` and `SCORING`, which have no base value and must be given by a sweep or on the command line;
 - `SWEEPS`: named sweeps, each a dictionary from a parameter to the list of values it takes. A sweep runs every combination of its lists, with every other parameter at its base value, `SEEDS_PER_CELL` times;
 - `expand_sweep` and `validate`: the functions that turn a sweep into one configuration per run and check each one. No code anywhere supplies a fallback for a missing parameter; a missing or invalid parameter stops the run with an error.
 
@@ -483,7 +488,7 @@ The assessment rule of each model is named in `BASE` by the name of its predicat
 **Commands.**
 
 ```
-python -m igss.run quick --model DR --scoring individual
+python -m igss.run quick --mode 1 --model DR --scoring aggregate
 python -m igss.run dry-run first
 python -m igss.run sweep first --workers 4
 python -m igss.run baseline first
@@ -502,7 +507,7 @@ python -m igss.run baseline first
    - background agents always decide what their kind says;
    - with e_action = 1, no cooperation ever happens;
    - the same seed gives the same output.
-3. **`baseline.py`.** Test: with no defectors and e_action = 0, `10` and `11` give identical results and input 0 is never read.
+3. **`baseline.py`.** Tests: with no defectors and e_action = 0, `10` and `11` give identical results and input 0 is never read; the baseline has 4, 16 and 34 strategies in modes 1, 2 and 3; a strategy whose evolved assessment rule is the base rule plays exactly as in mode 1.
 4. **`scoring.py`.** Tests:
    - a rule's aggregate score equals its alone-run payoff for the same seed;
    - rules with the same bit string get the same aggregate score within a generation.
@@ -550,7 +555,9 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | Scoring | both individual and aggregate, as separate named functions, compared | review | — |
 | iGSS agents per episode | N_I, a parameter separate from P under aggregate scoring; N_I = P under individual scoring and in the base configuration | decided | one symbol for both, as in v1.1 |
 | Episodes per scoring | E, averaged; 1 in the base configuration | decided | — |
-| Baseline | each rule alone, and each pair of rules, over many seeds; computed once per sweep, not per run | decided | — |
+| Baseline | each strategy alone (every iGSS agent uses it), over many seeds; computed once per sweep, not per run. Runs in pairs removed in v1.4. | decided | a baseline for individual scoring, for example one agent with X among agents with Y |
+| Main focus | aggregate scoring: a rule among copies of itself, in varying environments of cooperators and defectors. Individual scoring is built and kept as a separate question. | decided | — |
+| Rounds | R = 400 in the base configuration, raised from 200 when the populations became 32/32/32, to keep about 4 meetings per ordered pair | assistant | other values; the `rounds` sweep varies it |
 | Main output | count of each bit string per environment and scoring option, with expressions; `10` marked | decided | — |
 | SSOT location | this file, in the repository | decided | — |
 | Error types in mode 1 | execution error only | proposed | assessment error (modes 2–3; §14.4) |
@@ -571,12 +578,18 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | Meaning of depth | DEAP tree height (a lone terminal is 0) | review | counting levels from 1 |
 | Size control | depth limit 17 (child replaced by one of its parents), and a per-node penalty `PARSIMONY_TAX` on the selection score, 0 in the base configuration and varied as a search factor (§7) | decided | preferring the smaller expression on ties. Any size pressure acts as a prior on which rules are found. |
 | Elitism | none | review | carry the best rule forward unchanged |
-| Recovery criterion | `10` alone is the most common bit string in the final generation; ties reported separately | assistant | majority over the last X generations; its share of the population |
+| Recovery criterion | one strategy alone is the most common in the final generation, and §16 names it as a reciprocity strategy of the model (in mode 1: `10`); ties reported separately | decided | majority over the last X generations; its share of the population |
 | Repository layout | as in §11 | proposed | — |
 | Tooling | Python 3.14; DEAP 1.4.3, SymPy 1.14.0 and pytest 9.2.0 pinned in `requirements.txt`. DEAP's operators define parts of the model, so its version is part of this specification. | assistant | — |
-| Figures | as in §10: one R script, `R/figures.R`; no images during runs; no drawing of expression trees | assistant | drawing expression trees, as the legacy code did; T1 does not yet use the in-pairs runs |
+| Figures | as in §10: one R script, `R/figures.R`; no images during runs; no drawing of expression trees | assistant | drawing expression trees, as the legacy code did |
 | Population sizes | N_I = N_C = N_D = 32 in the base configuration, with 0 cooperators or 0 defectors as further environments. Equal groups replace the 32/10/10 of v1.2, which had no motivation. | decided | 10/10/10, as the legacy code had, for speed; analytical results for mode 1 |
 | Literature names in output | `most_common_name` and `labels.csv`, derived from §16; a strategy §16 does not name is "unnamed" | assistant | — |
+| Mode | `MODE` (1, 2 or 3) has no base value, like `MODEL` and `SCORING` | assistant | — |
+| Which assessment rule applies (modes 2 and 3) | aggregate scoring: the strategy's own assessment rule is the one rule of the episode, applied after every interaction whoever the partner is. Individual scoring: the partner's rule; when the partner is a background agent, the base rule. | decided | — |
+| Mode 3 operators | each crossover or mutation acts on one of the two expressions, chosen with equal chance | decided | acting on both |
+| Baseline in modes 2 and 3 | every strategy class alone: 16 and 34 | decided | — |
+| Counting strategies | by class: `11` and `00` with any assessment rule are one class each (§14.3) | assistant | counting all 64 pairs separately |
+| Size in mode 3 | the size penalty counts the nodes of both expressions | assistant | — |
 | Even populations | P and N_I are even; checked at start-up | decided | — |
 | Benefit and cost | c = 1 in all runs; the configuration holds b and c | decided | holding the ratio b/c |
 | Agent ids and list order | iGSS agents, then cooperators, then defectors; id = position | assistant | — |
@@ -584,7 +597,6 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | What agents run when scored | the rule's bit string, read from the compiled expression (§7) | assistant | calling the compiled expression at every decision |
 | Generation numbering | 1 to G; generation 1 is the initial population; G is scored and not bred | assistant | numbering from 0 |
 | Baseline rules | the named predicates of `rules.py`, used directly | assistant | hand-written DEAP expressions |
-| In-pairs assignment | first half of the iGSS agents X, second half Y | review | alternating; random; a rare-invader mixture (one X among Y) in place of, or beside, the even split |
 | Baseline seeds | `BASELINE_SEEDS` episodes per set, 50 in the base configuration | assistant | — |
 | Absent background type | empty cells | decided | 0 |
 | Output files | as in §10: a new directory per sweep, four files, unrounded numbers, `run_id` and `code_version` in every row | assistant | — |
@@ -607,19 +619,29 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | N_C, N_D | 0 or 32 each |
 | b, c | b/c = 2 or 5, c = 1 |
 | e_action | 0, 0.05 |
-| R | 200 |
+| R | 400 |
 | G | 100 |
 | seeds per environment and scoring option | 50 |
 | initial expression depth | 1–3 |
 
-## 14. Modes 2 and 3 (outline)
+## 14. Modes 2 and 3
 
 Modes 2 and 3 use the same episode, scoring options, baseline and search as mode 1. Only the rule that evolves changes.
 
-| Mode | Evolved | Fixed | Rules per model |
+| Mode | Evolved | Fixed | Strategies per model |
 | --- | --- | --- | --- |
+| 1 | action rule (1 input) | assessment rule: the base rule | 4 |
 | 2 | assessment rule (2 inputs) | action rule `10` | 16 |
-| 3 | both, as a pair of expressions | — | 4 × 16 = 64 |
+| 3 | both, as a pair of expressions | — | 4 × 16 = 64, in 34 classes (§14.3) |
+
+**The assessment expression.** It has two inputs, in this order: `donor_cooperated`, then `previous_record` (DR) or `partner_standing` (IR). It uses the same primitives and constants as the action expression, is generated and bred in the same way, and an output above 0 means the stored value becomes 1. It is classified by its output on the four rows of §5.
+
+**Which assessment rule applies.** Every interaction updates a stored value: in DR the partner's record of the donor, in IR the donor's public standing. This happens whoever the donor and the partner are, background agents included.
+
+- **Aggregate scoring.** Every iGSS agent in an episode carries the same strategy, so the episode has one assessment rule: the strategy's. It is applied after every interaction. It can be thought of as the rule of a ledger that every agent can read.
+- **Individual scoring.** The iGSS agents carry different assessment rules, so there is no single rule. The partner's rule is applied. When the partner is a background agent, which has no evolved rule, the model's base rule is applied.
+
+**Mode 3 breeding.** Each crossover or mutation acts on one of the two expressions, chosen with equal chance. Crossover exchanges material between the two parents' expressions of the same kind. The depth limit applies to each expression; the size penalty counts the nodes of both.
 
 ### 14.1 DR assessment rules
 
@@ -669,26 +691,18 @@ The inputs are (`donor_cooperated`, `partner_standing`), and the output is the d
 
 In both models, stored values start at 1. Rules `1111`, `1110`, `1011` and `1010` therefore never produce a 0 and behave like "always 1".
 
-### 14.3 Mode 3
+### 14.3 Classes of strategy
 
-There are 64 pairs per model, each classified by its two bit strings. When the action rule is `11` or `00`, the stored value is never used. The assessment rule then evolves without any selection pressure, and its bit string carries no information.
+There are 64 pairs per model, each identified by its two bit strings. When the action rule is `11` or `00`, the stored value is never read. The assessment rule then evolves without any selection pressure, and its bit string carries no information. Such pairs are therefore counted as one class each, written `11/any` and `00/any`, which leaves 2 + 32 = 34 classes. Under aggregate scoring all members of a class get the same score.
 
-### 14.4 Open issues to settle before coding modes 2 and 3
+### 14.4 Points settled, and points left open
 
-1. **Whose assessment rule is applied, under individual scoring.** Proposed: the partner's, as in mode 1.
-   - For DR this is natural: the partner's rule updates the partner's own private record.
-   - For IR it means the partner's rule writes the donor's public standing.
-2. **Weak selection on IR assessment rules under individual scoring.** If my rule sets your public standing, the consequences fall mostly on the other agents who later decide whether to help you, not on me.
-   - My own payoff then barely depends on my assessment rule, so selection can hardly favour one over another.
-   - In DR the record is used only by its owner, so this does not arise.
-   - Aggregate scoring does not have this problem.
-   - This is a property of the set-up to be checked, not a reason to change it.
-3. **Error types.** Execution error and assessment error are separate parameters, `e_action` and `e_assessment`.
-   - Execution error: the action itself fails.
-   - Assessment error: the action is misrecorded, giving a wrong record in DR or a wrong standing in IR.
-   - They affect different rules differently, so in modes 2 and 3 they should be varied separately.
+1. **Whose assessment rule is applied:** settled as above.
+2. **Weak selection on IR assessment rules under individual scoring.** If my rule sets your public standing, the consequences fall mostly on the other agents who later decide whether to help you, not on me. My own payoff then barely depends on my assessment rule, so selection can hardly favour one over another. In DR the record is used only by its owner, so this does not arise, and aggregate scoring does not have the problem. This is a property of the set-up to be checked, not a reason to change it.
+3. **Error types.** Only execution error is implemented. Assessment error (`e_assessment`: the action is misrecorded) is left for later; it affects rules differently from execution error and should be varied separately.
    - Under two-way execution error in IR, an always-defector would occasionally help by accident and, under `1101`, regain standing 1. This is one reason execution error is one-way (§13).
-4. **Third input for IR.** `donor_standing` as a third assessment input, giving 8 rows and 256 rules. The classification code should already accept it.
+4. **Third input for IR.** `donor_standing` as a third assessment input, giving 8 rows and 256 rules, is left for later. The classification code accepts any number of inputs.
+5. **What counts as found.** `recovered` is 1 when the single most common strategy is one §16 names as a reciprocity strategy of the model. Unnamed strategies that behave like a named one are not counted; T1 and T3 (§10) show them.
 
 ## 15. Later rungs
 
@@ -752,6 +766,7 @@ Newest first. Git history records every edit; this log records changes in meanin
 | Version | Date | Change |
 | --- | --- | --- |
 | v1.2 | 15 Nov 2026 | Written with the first build of mode 1, after an author's review of `docs/rebuild_plan.md`. Execution error decided: one-way, every donor, both models. Constants are two fixed terminals. N_I (iGSS agents per episode) separated from P for aggregate scoring; E (episodes per scoring) added. A size penalty, `PARSIMONY_TAX`, added as a search parameter, 0 in the base configuration. Every parameter can now be varied through named sweeps. Seed scheme, generation numbering, agent order and DEAP details written out. Output files and columns specified; a background type with no agents is logged as empty cells. Figures proposed. `config.py` and the commands described. New status values "assistant" and "review" in §13, and the header now lets the assistant make and record choices that cannot change which rules evolve. Legacy findings added to §17. |
+| v1.4 | 15 Nov 2026 | Modes 2 and 3 built and §14 written out: assessment expressions, which assessment rule applies under each scoring option, mode 3 breeding, strategy classes. Runs in pairs removed from the baseline, the output and the figures (F4 dropped); the baseline is now each strategy alone, in every mode. The main focus is stated as aggregate scoring. R raised to 400. `MODE` added as a parameter without a base value. Outputs now identify strategies as `TT:action/assessment` with their literature names; `composition.csv` replaces the `count_…` columns; `rules.csv` has one expression column per kind of rule. `recovered` redefined for all modes. Table T3 added. |
 | v1.3 | 15 Nov 2026 | Base population sizes changed to N_I = N_C = N_D = 32 (the first sweep now uses N_C and N_D of 0 or 32). Literature names added to the output as labels: `most_common_name` and `labels.csv`, and the figure legends. §8 now says why the baseline has runs in pairs; §10 says how to read `baseline.csv`. |
 | v1.2.1 | 15 Nov 2026 | Figures built as `R/figures.R` and §10 "Figures" rewritten to match: panels are labelled by the parameters that vary, F2 shows ties, T1 defined, no images during runs. |
 | v1.1 | 14 Nov 2026 | Moved from a Claude Doc into the repository, with numbered sections. Clarifications that make no change in meaning: the IR standing update now says the partner's standing used is the value the donor read; aggregate scoring is described as the "mean" payoff throughout (v1.0 said "total" once). Execution error reopened. v1.0 silently assumed one-way error (the IR convention) for both models, and its tests pulled in opposite directions on whether background agents are subject to error. The direction of error and its scope are now open decisions in §13, and the e_action test waits on them. New proposed rows: seed scheme, repository layout, tooling. Depth-limit wording aligned with DEAP (`staticLimit` returns one of the parents). Figures marked as open. |

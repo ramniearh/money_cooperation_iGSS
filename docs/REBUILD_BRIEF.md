@@ -97,7 +97,7 @@ Smoke runs of a few generations are allowed, to check that the code runs. Their 
 - The figures are specified in SPEC §10 and drawn by one R script, `R/figures.R`, from the CSV files of a sweep and its baseline.
 - The legacy plotting code was not ported; the new script was written against the new files.
 
-## Phase 5 — Modes 2 and 3
+## Phase 5 — Modes 2 and 3 (done, 15 November 2026)
 
 The design points of SPEC §14.4 are agreed with an author first. Then the same modules are extended, with tests, and SPEC §14 is brought up to the detail of §6 to §10.
 

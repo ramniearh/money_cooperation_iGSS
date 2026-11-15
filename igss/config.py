@@ -1,7 +1,7 @@
 """Every parameter of the model, and the sweeps (SPEC §6.3, §11, §13).
 
-BASE holds one value for every parameter except MODEL and SCORING. Those two
-have no base value: a sweep or the command line must give them, and a run
+BASE holds one value for every parameter except MODE, MODEL and SCORING. Those
+three have no base value: a sweep or the command line must give them, and a run
 without them fails. No code anywhere supplies a fallback for a missing
 parameter.
 
@@ -24,9 +24,12 @@ BASE = {
     "B": 5,                    # benefit to the partner
     "C": 1,                    # cost to the donor (1 by convention)
     "E_ACTION": 0.0,           # probability that an intended cooperation fails
-    "ROUNDS": 200,             # R: rounds per episode
-    "DR_ASSESSMENT_RULE": "what_donor_did",        # name of a predicate in rules.py
-    "IR_ASSESSMENT_RULE": "did_not_refuse_a_one",  # name of a predicate in rules.py
+    "ROUNDS": 400,             # R: rounds per episode (about 4 meetings per ordered pair when N = 96)
+    # The base assessment rule of each model, by the name of its predicate in rules.py.
+    # Mode 1: the fixed rule. Modes 2 and 3: the rule background agents apply under
+    # individual scoring, and the rule in force for strategies that never read their input.
+    "DR_ASSESSMENT_RULE": "what_donor_did",
+    "IR_ASSESSMENT_RULE": "did_not_refuse_a_one",
 
     # --- Search (DEAP) --------------------------------------------------------
     "POP_SIZE": 32,            # P: number of rules in the evolving population
@@ -51,8 +54,9 @@ BASE = {
 }
 
 SWEEPS = {
-    # The first sweep (SPEC §6.3).
+    # The first sweep (SPEC §6.3), in mode 1: the action rule evolves.
     "first": {
+        "MODE": [1],
         "MODEL": ["DR", "IR"],
         "SCORING": ["individual", "aggregate"],
         "N_C": [0, 32],
@@ -63,17 +67,39 @@ SWEEPS = {
     # The two below are examples of varying a game parameter and a search
     # parameter. Their values are placeholders for the authors to edit.
     "rounds": {
+        "MODE": [1],
         "MODEL": ["DR", "IR"],
         "SCORING": ["individual", "aggregate"],
-        "ROUNDS": [10, 50, 200],
+        "ROUNDS": [50, 200, 400, 800],
     },
     "parsimony": {
+        "MODE": [1],
         "MODEL": ["DR", "IR"],
         "SCORING": ["individual", "aggregate"],
         "PARSIMONY_TAX": [0.0, 0.01, 0.05],
     },
+    # The first sweep's environments in modes 2 and 3 (SPEC §14).
+    "mode2": {
+        "MODE": [2],
+        "MODEL": ["DR", "IR"],
+        "SCORING": ["individual", "aggregate"],
+        "N_C": [0, 32],
+        "N_D": [0, 32],
+        "B": [2, 5],
+        "E_ACTION": [0.0, 0.05],
+    },
+    "mode3": {
+        "MODE": [3],
+        "MODEL": ["DR", "IR"],
+        "SCORING": ["individual", "aggregate"],
+        "N_C": [0, 32],
+        "N_D": [0, 32],
+        "B": [2, 5],
+        "E_ACTION": [0.0, 0.05],
+    },
     # A very small sweep, to check that everything runs. Its output means nothing.
     "smoke": {
+        "MODE": [1, 2, 3],
         "MODEL": ["DR", "IR"],
         "SCORING": ["individual", "aggregate"],
         "N_C": [0, 4],
@@ -91,14 +117,16 @@ SWEEPS = {
 # Overrides used by `python -m igss.run quick`: one short run of the base configuration.
 QUICK = {"GENERATIONS": 10, "SEEDS_PER_CELL": 1}
 
-PARAMETERS = ("MODEL", "SCORING") + tuple(BASE)
+PARAMETERS = ("MODE", "MODEL", "SCORING") + tuple(BASE)
 
 
 def validate(cfg):
     """Stop with an error if a configuration is incomplete or inconsistent."""
     missing = [name for name in PARAMETERS if name not in cfg]
     if missing:
-        raise ValueError(f"configuration lacks {missing}; MODEL and SCORING have no default")
+        raise ValueError(f"configuration lacks {missing}; MODE, MODEL and SCORING have no default")
+    if cfg["MODE"] not in rules.MODES:
+        raise ValueError(f"MODE must be one of {rules.MODES}")
     if cfg["MODEL"] not in rules.MODELS:
         raise ValueError(f"MODEL must be one of {rules.MODELS}")
     if cfg["SCORING"] not in SCORING_OPTIONS:

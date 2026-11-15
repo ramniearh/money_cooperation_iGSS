@@ -1,6 +1,6 @@
 """Command-line entry point, and the writer of the output files (SPEC §10, §11).
 
-    python -m igss.run quick --model DR --scoring individual
+    python -m igss.run quick --mode 1 --model DR --scoring aggregate
     python -m igss.run dry-run first
     python -m igss.run sweep first --workers 4
     python -m igss.run baseline first
@@ -23,21 +23,22 @@ from igss.episode import SUMMARY_COLUMNS
 
 _ASSESSMENT_KEYS = ("DR_ASSESSMENT_RULE", "IR_ASSESSMENT_RULE")
 PARAMETER_COLUMNS = (
-    ("sweep", "run_id", "code_version", "run_seed", "scoring", "model", "assessment_rule")
+    ("sweep", "run_id", "code_version", "run_seed", "mode", "scoring", "model", "assessment_rule")
     + tuple(name.lower() for name in config.BASE if name not in _ASSESSMENT_KEYS)
 )
-COUNT_COLUMNS = tuple("count_" + bits for bits in rules.ALL_ACTION_BITS)
 GENERATION_COLUMNS = (
-    PARAMETER_COLUMNS + ("generation",) + COUNT_COLUMNS
-    + ("most_common", "most_common_name", "mean_size")
+    PARAMETER_COLUMNS
+    + ("generation", "most_common", "most_common_name", "most_common_count", "mean_size")
     + SUMMARY_COLUMNS
 )
 RUN_COLUMNS = GENERATION_COLUMNS + ("tied", "recovered")
-RULE_COLUMNS = ("run_id", "generation", "rule_index", "expression", "simplified",
-                "size", "height", "bit_string", "score", "selection_score")
-LABEL_COLUMNS = ("model", "assessment_rule", "bit_string", "description", "literature_name",
-                 "canonical")
-ENVIRONMENT_COLUMNS = ("sweep", "code_version", "model", "assessment_rule",
+COMPOSITION_COLUMNS = ("run_id", "generation", "strategy", "strategy_name", "count")
+RULE_COLUMNS = ("run_id", "generation", "rule_index", "strategy", "strategy_name",
+                "action_expression", "action_simplified",
+                "assessment_expression", "assessment_simplified",
+                "size", "height", "score", "selection_score")
+LABEL_COLUMNS = ("model", "strategy_name", "colour_key", "named_reciprocity")
+ENVIRONMENT_COLUMNS = ("sweep", "code_version", "mode", "model", "assessment_rule",
                        "n_igss", "n_c", "n_d", "b", "c", "e_action", "rounds")
 
 
@@ -66,6 +67,7 @@ def parameter_values(cfg, version):
         "run_id": cfg["RUN_ID"],
         "code_version": version,
         "run_seed": cfg["RUN_SEED"],
+        "mode": cfg["MODE"],
         "scoring": cfg["SCORING"],
         "model": cfg["MODEL"],
         "assessment_rule": tt(rules.ASSESSMENT_BITS[config.assessment_rule(cfg)]),
@@ -76,44 +78,46 @@ def parameter_values(cfg, version):
 # --- One run, turned into rows ----------------------------------------------
 
 def run_rows(job):
-    """Run one configuration; return its row for runs.csv and its rows for the other two files."""
+    """Run one configuration; return its rows for the four per-run files."""
     cfg, version = job
     parameters = parameter_values(cfg, version)
-    assessment_bits = rules.ASSESSMENT_BITS[config.assessment_rule(cfg)]
-    generation_rows, rule_rows = [], []
+    generation_rows, composition_rows, rule_rows = [], [], []
     for record in search.run_evolution(cfg):
         generation = record["generation"]
         row = dict(parameters)
         row["generation"] = generation
-        for bits, count in record["counts"].items():
-            row["count_" + bits] = count
-        row["most_common"] = "+".join(tt(bits) for bits in record["most_common"])
-        row["most_common_name"] = "+".join(
-            rules.literature_name(cfg["MODEL"], bits, assessment_bits)
-            for bits in record["most_common"])
+        row["most_common"] = "+".join(record["most_common"])
+        row["most_common_name"] = "+".join(record["names"][s] for s in record["most_common"])
+        row["most_common_count"] = record["most_common_count"]
         row["mean_size"] = record["mean_size"]
         row.update(record["summary"])
         generation_rows.append(row)
+
+        for strategy, count in record["counts"].items():
+            composition_rows.append({
+                "run_id": cfg["RUN_ID"], "generation": generation, "strategy": strategy,
+                "strategy_name": record["names"][strategy], "count": count,
+            })
 
         is_logged = (generation == 1 or generation == cfg["GENERATIONS"]
                      or generation % cfg["RULES_LOG_EVERY"] == 0)
         if is_logged:
             for rule in record["rules"]:
-                small_enough = rule["size"] <= cfg["SIMPLIFY_MAX_SIZE"]
-                rule_rows.append({
-                    **rule,
-                    "run_id": cfg["RUN_ID"],
-                    "generation": generation,
-                    "bit_string": tt(rule["bit_string"]),
-                    "simplified": (rules.simplify(rule["expression"], cfg["MODEL"])
-                                   if small_enough else None),
-                })
+                rule_row = {**rule, "run_id": cfg["RUN_ID"], "generation": generation}
+                if rule["size"] <= cfg["SIMPLIFY_MAX_SIZE"]:
+                    for kind in ("action", "assessment"):
+                        text = rule.get(kind + "_expression")
+                        if text is not None:
+                            rule_row[kind + "_simplified"] = rules.simplify(text, cfg["MODEL"])
+                rule_rows.append(rule_row)
 
     final = record
     run_row = dict(generation_rows[-1])
+    # Recovered: one strategy alone is the most common in the final generation,
+    # and it is a reciprocity strategy named in SPEC §16.
     run_row["tied"] = int(len(final["most_common"]) > 1)
-    run_row["recovered"] = int(final["most_common"] == [rules.CANONICAL_ACTION_BITS])
-    return run_row, generation_rows, rule_rows
+    run_row["recovered"] = int(final["most_common_is_named_reciprocity"] == [True])
+    return run_row, generation_rows, composition_rows, rule_rows
 
 
 # --- Writing -----------------------------------------------------------------
@@ -125,6 +129,10 @@ def new_output_directory(out_root, name):
     return directory
 
 
+def _open(directory, name):
+    return open(directory / name, "w", newline="", encoding="utf-8")
+
+
 def _writer(file, columns):
     writer = csv.DictWriter(file, fieldnames=columns)  # None is written as an empty cell
     writer.writeheader()
@@ -132,33 +140,25 @@ def _writer(file, columns):
 
 
 def write_labels(configurations, directory):
-    """labels.csv: what each bit string does and what the literature calls it (SPEC §16)."""
-    seen = {(cfg["MODEL"], config.assessment_rule(cfg)) for cfg in configurations}
-    with open(directory / "labels.csv", "w", newline="", encoding="utf-8") as file:
+    """labels.csv: the names a strategy can get in each model of the sweep (SPEC §16)."""
+    with _open(directory, "labels.csv") as file:
         writer = _writer(file, LABEL_COLUMNS)
-        for model, assessment in sorted(seen):
-            assessment_bits = rules.ASSESSMENT_BITS[assessment]
-            for name, bits in rules.ACTION_BITS.items():
-                writer.writerow({
-                    "model": model,
-                    "assessment_rule": tt(assessment_bits),
-                    "bit_string": tt(bits),
-                    "description": rules.ACTION_DESCRIPTIONS[name],
-                    "literature_name": rules.literature_name(model, bits, assessment_bits),
-                    "canonical": int(name == rules.CANONICAL_ACTION_RULE),
-                })
+        for model in sorted({cfg["MODEL"] for cfg in configurations}):
+            writer.writerows(rules.label_rows(model))
 
 
 def write_runs(runs, directory, workers):
-    """Run every configuration and write runs.csv, generations.csv, rules.csv and labels.csv."""
+    """Run every configuration and write the files of a sweep."""
     version = code_version()
     write_labels(runs, directory)
     jobs = [(cfg, version) for cfg in runs]
-    with (open(directory / "runs.csv", "w", newline="", encoding="utf-8") as runs_file,
-          open(directory / "generations.csv", "w", newline="", encoding="utf-8") as generations_file,
-          open(directory / "rules.csv", "w", newline="", encoding="utf-8") as rules_file):
+    with (_open(directory, "runs.csv") as runs_file,
+          _open(directory, "generations.csv") as generations_file,
+          _open(directory, "composition.csv") as composition_file,
+          _open(directory, "rules.csv") as rules_file):
         runs_writer = _writer(runs_file, RUN_COLUMNS)
         generations_writer = _writer(generations_file, GENERATION_COLUMNS)
+        composition_writer = _writer(composition_file, COMPOSITION_COLUMNS)
         rules_writer = _writer(rules_file, RULE_COLUMNS)
 
         if workers > 1:
@@ -167,9 +167,10 @@ def write_runs(runs, directory, workers):
         else:
             pool = None
             results = map(run_rows, jobs)
-        for done, (run_row, generation_rows, rule_rows) in enumerate(results, start=1):
+        for done, (run_row, generation_rows, composition_rows, rule_rows) in enumerate(results, 1):
             runs_writer.writerow(run_row)
             generations_writer.writerows(generation_rows)
+            composition_writer.writerows(composition_rows)
             rules_writer.writerows(rule_rows)
             print(f"  run {done} of {len(jobs)} done ({run_row['run_id']})", flush=True)
         if pool:
@@ -181,8 +182,9 @@ def baseline_environments(sweep_name):
     """The distinct environments of a sweep, whatever the scoring option or search parameters."""
     seen = {}
     for cfg in config.sweep_cells(sweep_name):
-        key = (cfg["MODEL"], config.assessment_rule(cfg), cfg["N_IGSS"], cfg["N_C"], cfg["N_D"],
-               cfg["B"], cfg["C"], cfg["E_ACTION"], cfg["ROUNDS"], cfg["BASELINE_SEEDS"])
+        key = (cfg["MODE"], cfg["MODEL"], config.assessment_rule(cfg), cfg["N_IGSS"], cfg["N_C"],
+               cfg["N_D"], cfg["B"], cfg["C"], cfg["E_ACTION"], cfg["ROUNDS"],
+               cfg["BASELINE_SEEDS"])
         seen.setdefault(key, cfg)
     return list(seen.values())
 
@@ -191,19 +193,21 @@ def write_baseline(sweep_name, directory):
     version = code_version()
     environments = baseline_environments(sweep_name)
     write_labels(environments, directory)
-    with open(directory / "baseline.csv", "w", newline="", encoding="utf-8") as file:
+    with _open(directory, "baseline.csv") as file:
         writer = _writer(file, ENVIRONMENT_COLUMNS + baseline.BASELINE_COLUMNS)
         for done, cfg in enumerate(environments, start=1):
             environment_values = {
                 "sweep": sweep_name,
                 "code_version": version,
+                "mode": cfg["MODE"],
                 "model": cfg["MODEL"],
                 "assessment_rule": tt(rules.ASSESSMENT_BITS[config.assessment_rule(cfg)]),
                 "n_igss": cfg["N_IGSS"], "n_c": cfg["N_C"], "n_d": cfg["N_D"],
                 "b": cfg["B"], "c": cfg["C"], "e_action": cfg["E_ACTION"], "rounds": cfg["ROUNDS"],
             }
             env = search.environment_of(cfg)
-            for row in baseline.baseline_rows(env, cfg["N_IGSS"], cfg["BASELINE_SEEDS"]):
+            for row in baseline.baseline_rows(env, cfg["MODE"], cfg["N_IGSS"],
+                                              cfg["BASELINE_SEEDS"]):
                 writer.writerow({**environment_values, **row})
             print(f"  environment {done} of {len(environments)} done", flush=True)
 
@@ -211,7 +215,7 @@ def write_baseline(sweep_name, directory):
 # --- Commands ----------------------------------------------------------------
 
 def command_quick(args):
-    cfg = config.validate({**config.BASE, **config.QUICK,
+    cfg = config.validate({**config.BASE, **config.QUICK, "MODE": args.mode,
                            "MODEL": args.model, "SCORING": args.scoring})
     cfg.update({"SWEEP": "quick", "RUN_ID": "quick-0000-000", "RUN_SEED": cfg["BASE_SEED"]})
     directory = new_output_directory(args.out, "quick")
@@ -251,6 +255,7 @@ def main(argv=None):
     commands = parser.add_subparsers(dest="command", required=True)
 
     quick = commands.add_parser("quick", help="one short run of the base configuration")
+    quick.add_argument("--mode", required=True, type=int, choices=rules.MODES)
     quick.add_argument("--model", required=True, choices=rules.MODELS)
     quick.add_argument("--scoring", required=True, choices=config.SCORING_OPTIONS)
     quick.set_defaults(function=command_quick)

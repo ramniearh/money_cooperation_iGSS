@@ -25,13 +25,16 @@ class Agent:
     payoff: float = 0.0
     records: dict[int, int] = field(default_factory=dict)  # DR: partner_id -> 0/1
     standing: int = 1                                       # IR
+    # Modes 2 and 3: the agent's own assessment rule, (action, other bit) -> 0/1.
+    # None means the environment's base rule.
+    assessment_rule: Callable | None = None
 
 
 @dataclass(frozen=True)
 class Environment:
     """The parameters of the game. The number of iGSS agents is set by the agent list."""
     model: str            # "DR" or "IR"
-    assessment_rule: str  # name of a predicate in rules.ASSESSMENT_RULES
+    assessment_rule: str  # the base assessment rule: name of a predicate in rules.ASSESSMENT_RULES
     n_c: int              # unconditional cooperators
     n_d: int              # unconditional defectors
     b: float              # benefit to the partner
@@ -49,12 +52,21 @@ class EpisodeResult:
     cooperations: Counter           # (donor kind, partner kind) -> cooperations (action taken)
 
 
-def make_agents(action_rules, n_c, n_d):
-    """The agent list: iGSS agents, then cooperators, then defectors; id = position."""
-    kinds = [IGSS] * len(action_rules) + [ALWAYS_COOPERATE] * n_c + [ALWAYS_DEFECT] * n_d
-    rule_list = list(action_rules) + [None] * (n_c + n_d)
-    return [Agent(agent_id=i, kind=kind, action_rule=rule)
-            for i, (kind, rule) in enumerate(zip(kinds, rule_list))]
+def make_agents(action_rules, n_c, n_d, assessment_rules=None, background_assessment=None):
+    """The agent list: iGSS agents, then cooperators, then defectors; id = position.
+
+    `assessment_rules` gives each iGSS agent an assessment rule of its own and
+    `background_assessment` gives one to every background agent. Left as None,
+    an agent applies the environment's base assessment rule.
+    """
+    n_igss, n_background = len(action_rules), n_c + n_d
+    kinds = [IGSS] * n_igss + [ALWAYS_COOPERATE] * n_c + [ALWAYS_DEFECT] * n_d
+    action_list = list(action_rules) + [None] * n_background
+    assessment_list = (list(assessment_rules or [None] * n_igss)
+                       + [background_assessment] * n_background)
+    return [Agent(agent_id=i, kind=kinds[i], action_rule=action_list[i],
+                  assessment_rule=assessment_list[i])
+            for i in range(n_igss + n_background)]
 
 
 def make_rng(seed_text):
@@ -71,7 +83,7 @@ def play_episode(agents, env, rng):
         raise ValueError("agent_id must be the position in the agent list")
     if env.model not in rules.MODELS:
         raise ValueError(f"unknown model: {env.model!r}")
-    assess = rules.ASSESSMENT_RULES[env.assessment_rule]
+    base_assess = rules.ASSESSMENT_RULES[env.assessment_rule]
     direct = env.model == "DR"
 
     # Fresh start: payoffs 0, every record 1 (an absent record counts as 1), every standing 1.
@@ -121,7 +133,8 @@ def play_episode(agents, env, rng):
                 cooperated[donor.agent_id] += 1
                 cooperations[pair] += 1
 
-            # 7. The assessment rule, applied at once.
+            # 7. The partner's assessment rule, applied at once.
+            assess = partner.assessment_rule or base_assess
             action = int(cooperates)
             if direct:
                 previous = partner.records.get(donor.agent_id, 1)

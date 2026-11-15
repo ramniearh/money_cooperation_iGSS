@@ -80,3 +80,27 @@ def test_rule_from_bit_string_round_trip():
 def test_simplify_is_for_reading_only():
     assert rules.simplify("sub(1, mul(0, partner_standing))", "IR") == "1"
     assert rules.simplify("add(partner_standing, partner_standing)", "IR") == "2*partner_standing"
+
+
+def test_assessment_expressions_are_classified_on_four_rows():
+    # SPEC §5 row order (1,1), (1,0), (0,1), (0,0); SPEC §14 for the bit strings.
+    assert rules.bits_of_expression("donor_cooperated", "IR", "assessment") == "1100"
+    assert rules.bits_of_expression("partner_standing", "IR", "assessment") == "1010"
+    assert rules.bits_of_expression("mul(donor_cooperated, previous_record)", "DR", "assessment") == "1000"
+    assert rules.bits_of_expression(
+        "sub(1, mul(sub(1, donor_cooperated), partner_standing))", "IR", "assessment") == "1101"
+
+
+def test_there_are_sixteen_assessment_rules():
+    assert len(rules.ALL_ASSESSMENT_BITS) == 16
+    assert rules.ALL_ASSESSMENT_BITS[0] == "1111" and rules.ALL_ASSESSMENT_BITS[-1] == "0000"
+    assert set(rules.ASSESSMENT_BITS.values()) <= set(rules.ALL_ASSESSMENT_BITS)
+
+
+def test_strategy_classes():
+    # SPEC §14.3: with `11` or `00` the assessment rule carries no information.
+    assert rules.strategy_id("11", "0101") == rules.strategy_id("11", "1100") == "TT:11/any"
+    assert rules.strategy_id("10", "1100") == "TT:10/1100"
+    assert rules.is_named_reciprocity("DR", "10", "1100")
+    assert not rules.is_named_reciprocity("DR", "11", "1100")
+    assert not rules.is_named_reciprocity("DR", "10", "1101")
