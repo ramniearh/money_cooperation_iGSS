@@ -452,4 +452,5 @@ The remaining rows of §3 were covered by the standing instructions of §7.1 and
 - The meaning of "depth" and its alternatives (row 4).
 - The seed architecture (rows 30, 48).
 - "Unnamed" strategies that behave exactly like a named one (modes 2 and 3; SPEC §10, "A caution on unnamed"). Noted by an author on 15 November 2026 for the analysis stage: grouping by name alone understates how often a named behaviour is found.
+- **Individual scoring as a whole is set aside** (author, 15 November 2026). It is not the present focus. It is to be revisited after the aggregate-scoring runs, once at least a base version of the model is running. The next item belongs to it.
 - Whose assessment rule is applied under individual scoring (SPEC §14): the partner's, with the observer and private-assessment set-ups of the IR literature as alternatives.

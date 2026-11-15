@@ -54,6 +54,14 @@ BASE = {
 }
 
 SWEEPS = {
+    # A first look: the base configuration in every mode and model, under
+    # aggregate scoring only, a few seeds each.
+    "base": {
+        "MODE": [1, 2, 3],
+        "MODEL": ["DR", "IR"],
+        "SCORING": ["aggregate"],
+        "SEEDS_PER_CELL": [10],
+    },
     # The first sweep (SPEC §6.3), in mode 1: the action rule evolves.
     "first": {
         "MODE": [1],

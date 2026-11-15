@@ -556,7 +556,7 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | iGSS agents per episode | N_I, a parameter separate from P under aggregate scoring; N_I = P under individual scoring and in the base configuration | decided | one symbol for both, as in v1.1 |
 | Episodes per scoring | E, averaged; 1 in the base configuration | decided | — |
 | Baseline | each strategy alone (every iGSS agent uses it), over many seeds; computed once per sweep, not per run. Runs in pairs removed in v1.4. | decided | a baseline for individual scoring, for example one agent with X among agents with Y |
-| Main focus | aggregate scoring: a rule among copies of itself, in varying environments of cooperators and defectors. Individual scoring is built and kept as a separate question. | decided | — |
+| Main focus | aggregate scoring: a rule among copies of itself, in varying environments of cooperators and defectors. Individual scoring is built and kept as a separate question, to be taken up again once aggregate scoring has been run and a base version of the model is working. | decided | — |
 | Rounds | R = 400 in the base configuration, raised from 200 when the populations became 32/32/32, to keep about 4 meetings per ordered pair | assistant | other values; the `rounds` sweep varies it |
 | Main output | count of each bit string per environment and scoring option, with expressions; `10` marked | decided | — |
 | SSOT location | this file, in the repository | decided | — |
@@ -607,6 +607,7 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | Base seed | `BASE_SEED` = 1 | assistant | — |
 | Quick run and smoke sweep | `quick`: the base configuration for 10 generations, one seed. `smoke`: a very small sweep used by the tests. Neither produces results. | assistant | — |
 | Parallel runs | `--workers` runs several runs at once; rows are written in the same order whatever the number of workers | assistant | — |
+| The `base` sweep | the base configuration in every mode and model, aggregate scoring only, 10 seeds each: a first look before the full sweeps | assistant | — |
 | Sweeps other than the first | `rounds` and `parsimony` in `config.py` are examples with placeholder values, for the authors to edit | assistant | — |
 
 **Parameters for the first sweep.**
