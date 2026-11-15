@@ -11,11 +11,15 @@ This repository rebuilds the iGSS models of direct reciprocity (DR) and indirect
 
 - Read the sections of `docs/SPEC.md` that the task touches, and always §3 (vocabulary), §5 (truth tables) and §13 (decision register).
 - For rebuild work, follow `docs/REBUILD_BRIEF.md` and do only the phase you were asked to do.
-- Start in plan mode. Propose the plan, then wait for approval before editing.
+- For a new phase, a new mode or a change of design, start in plan mode and wait for approval. Routine work inside an agreed build does not need a plan first.
 
 ## Hard rules
 
-1. **No silent choices.** If the code needs a choice that SPEC.md does not make, stop and ask. This covers defaults, orderings, seed handling, column names, file formats and tie-breaking. Propose the choice as a new "proposed" row for §13, and write no code that depends on it until an author confirms.
+1. **No silent choices.** Every choice the code needs that SPEC.md does not make is written into SPEC §13.
+   - If it can change which rules evolve (scoring, error, assessment rules, selection pressure, what is swept), stop and ask, and write no code that depends on it until an author confirms.
+   - If it is a DEAP mechanic or cannot change which rules evolve (ids, orderings, seed handling, column names, file formats), make an informed choice, record it in §13 with status "assistant", and report it at the end of the task. Explain DEAP behaviour when reporting it: the authors are learning DEAP.
+   - When unsure which kind it is, ask.
+   - Where the legacy code and SPEC.md disagree, follow SPEC.md and report it afterwards.
 2. **Spec before code.** An agreed change in behaviour goes into SPEC.md, including its change log (§18), before the code or in the same commit.
 3. **Bit strings are derived, never typed.** Define each named rule as a predicate on named inputs and derive its bit string. Row order: all-ones first, first input most significant. The only literal bit strings allowed are in tests, as expected values copied from SPEC.md.
 4. **`legacy/` is read-only.** Read it for reference. Never edit it, import from it or "fix" it. Port nothing from it into the model core (`rules`, `episode`, `scoring`, `baseline`, `search`). Peripheral code (plotting, logging) may be ported only once SPEC.md specifies what it must produce.
@@ -35,18 +39,18 @@ This repository rebuilds the iGSS models of direct reciprocity (DR) and indirect
 
 ## Working loop
 
-1. Plan, then wait for approval.
+1. Agree the design points first (see hard rule 1).
 2. Write the tests for the module first, using the tests listed in SPEC §11. Then write the code, run the tests and show the output.
 3. Make one module or one change per commit. The commit message names the SPEC section it implements, for example `episode: implement one round (SPEC §4)`.
 4. After each change, list every assumption you made that SPEC.md does not state. Do this even when the list seems empty.
-5. Stop at the end of each module for review.
+5. Several modules may be built in one task when an author asks for it. Report at the end of the task, with a short smoke run the author can look at.
 
 ## Commands
 
-These are proposed (SPEC §13) and to be confirmed in phase 1 of the brief:
-
 - Install: `pip install -r requirements.txt`
-- Tests: `pytest`
+- Tests: `python -m pytest`
+- One quick run: `python -m igss.run quick --model DR --scoring individual`
+- List a sweep without running it: `python -m igss.run dry-run first`
 
 ## Gotchas
 

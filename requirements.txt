@@ -1,0 +1,4 @@
+# Pinned versions (SPEC §13 "Tooling"). Developed and tested with Python 3.14.
+deap==1.4.3
+sympy==1.14.0
+pytest==9.2.0
