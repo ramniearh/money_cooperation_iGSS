@@ -4,7 +4,7 @@ This file is the single source of truth for rebuilding the iGSS code from scratc
 
 The code must match this file, and any mismatch is a bug. A change in behaviour is made here first, or in the same commit as the code, and is recorded in the change log (§18).
 
-- **Status:** v1.5, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
+- **Status:** v1.5.1, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
   - Modes 1, 2 and 3 are specified and built. The main focus for now is aggregate scoring; individual scoring is built and kept as a separate question.
   - No results appear here.
 - **Every choice is listed** in the decision register (§13). A choice not written here must not be made silently in code.
@@ -620,7 +620,8 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | Parallel runs | `--workers` runs several runs at once; rows are written in the same order whatever the number of workers | assistant | — |
 | The `base` sweep | the base configuration in every mode and model, aggregate scoring only, 10 seeds each: a first look before the full sweeps | assistant | — |
 | Sweeps other than the first | `rounds` and `parsimony` in `config.py` are examples with placeholder values, for the authors to edit | assistant | — |
-| Exploratory sweeps for IR in mode 2: design | §14.5: aggregate scoring; a full grid over N_C {0, 32} × N_D {0, 32} × b {2, 5, 10}; R, G and search parameters each varied alone; 10 seeds per combination | decided | 20 or 50 seeds; N_C and N_D of 16 or 64; e_action of 0.05; individual scoring |
+| Exploratory sweeps for IR in mode 2: design | §14.5: aggregate scoring; a full grid over N_C {0, 32} × N_D {0, 32} × b {2, 5, 10}; R, G and search parameters each varied alone; 10 seeds per combination | decided | 20 or 50 seeds; N_C and N_D of 16 or 64; individual scoring |
+| Exploratory sweeps for IR in mode 2: execution error | `ir2_env_e005`: the environment grid again with e_action = 0.05, as a sweep of its own so that the runs at e_action = 0 are not repeated | decided | other values of e_action; e_action crossed with the parameters varied alone |
 | Exploratory sweeps for IR in mode 2: values of the parameters varied alone | R: 100, 400, 1600. Size penalty: 0, 0.01, 0.05. Depth limit: 3, 5, 17. Tournament size: 2, 3, 7. Proposed by the assistant, including the choice of tournament size, and confirmed by an author after the first run. | decided | other values; P; crossover and mutation probabilities; initial depths |
 | Varying G | one sweep with G = 200, read at earlier generations, because a shorter run is exactly the start of a longer one with the same seed (§14.5); a test checks this | assistant | separate runs for each G |
 | Second measure of final composition | "final share" (mean share of the final population) reported beside "ends most common" in F6, F7 and T4 (§10). It adds a reading of the same runs and changes nothing that is run. | assistant | majority over the last X generations |
@@ -730,6 +731,7 @@ The environment is varied as a full grid. Every other parameter is varied alone,
 | Sweep | Varied | Values | Combinations |
 | --- | --- | --- | --- |
 | `ir2_env` | N_C × N_D × b | N_C: 0, 32; N_D: 0, 32; b: 2, 5, 10 | 12 |
+| `ir2_env_e005` | N_C × N_D × b, with e_action = 0.05 | the same grid as `ir2_env` | 12 |
 | `ir2_rounds` | R | 100, 400, 1600 | 3 |
 | `ir2_generations` | G | 200, read at earlier generations | 1 |
 | `ir2_parsimony` | size penalty (`PARSIMONY_TAX`) | 0, 0.01, 0.05 | 3 |
@@ -740,7 +742,8 @@ The environment is varied as a full grid. Every other parameter is varied alone,
 - **Generations.** Nothing in a run depends on G except when it stops: the run seed and the episode seeds (§9) do not involve G. A run with a smaller G is therefore exactly the first generations of a run with a larger G and the same seed. G is varied by running 200 generations once and reading the composition at earlier generations (F1 and F8, §10).
 - **Search parameters.** The size penalty is in units of payoff per round, per node (§7). The depth limit cannot be below the largest initial depth, 3. Tournament size sets the strength of selection: with size 2 the better of two random rules is kept, with size 7 the best of seven.
 - **The base combination is repeated.** Every sweep contains the base configuration (N_C = N_D = 32, b = 5, R = 400, and so on) with the same seeds, so those runs are identical across the sweeps for G up to 100.
-- e_action stays at 0, and P, the crossover and mutation probabilities and the initial depths stay at their base values. These are left for later sweeps (§13).
+- **Execution error.** e_action is 0 in every sweep except `ir2_env_e005`, which repeats the environment grid with e_action = 0.05, the second value of the first sweep (§6.3). The two grids share run seeds, and runs that differ only in e_action share their matchings (§4), so each run of one has a counterpart in the other. With errors, a 0 can arise even when there are no defectors, so the collapse of §6.3 no longer holds. The figures of `ir2_env_e005` label only the parameters that vary within it; its e_action is in the sweep's name and in every row.
+- P, the crossover and mutation probabilities and the initial depths stay at their base values. These are left for later sweeps (§13).
 
 These sweeps are small and exploratory. They are not the main output of §10, which rests on 50 seeds.
 
@@ -805,6 +808,7 @@ Newest first. Git history records every edit; this log records changes in meanin
 
 | Version | Date | Change |
 | --- | --- | --- |
+| v1.5.1 | 15 Nov 2026 | Sweep `ir2_env_e005` added (§14.5): the IR mode 2 environment grid with e_action = 0.05. The values of the parameters varied alone are now decided (§13). |
 | v1.5 | 15 Nov 2026 | Exploratory sweeps for IR in mode 2 added (§14.5): an environment grid, and R, G, size penalty, depth limit and tournament size each varied alone. Figures F6, F7 and F8 and table T4 added (§10), with a second measure of final composition, "final share", beside "ends most common". Figures now have a minimum width. |
 | v1.2 | 15 Nov 2026 | Written with the first build of mode 1, after an author's review of `docs/rebuild_plan.md`. Execution error decided: one-way, every donor, both models. Constants are two fixed terminals. N_I (iGSS agents per episode) separated from P for aggregate scoring; E (episodes per scoring) added. A size penalty, `PARSIMONY_TAX`, added as a search parameter, 0 in the base configuration. Every parameter can now be varied through named sweeps. Seed scheme, generation numbering, agent order and DEAP details written out. Output files and columns specified; a background type with no agents is logged as empty cells. Figures proposed. `config.py` and the commands described. New status values "assistant" and "review" in §13, and the header now lets the assistant make and record choices that cannot change which rules evolve. Legacy findings added to §17. |
 | v1.4 | 15 Nov 2026 | Modes 2 and 3 built and §14 written out: assessment expressions, which assessment rule applies under each scoring option, mode 3 breeding, strategy classes. Runs in pairs removed from the baseline, the output and the figures (F4 dropped); the baseline is now each strategy alone, in every mode. The main focus is stated as aggregate scoring. R raised to 400. `MODE` added as a parameter without a base value. Outputs now identify strategies as `TT:action/assessment` with their literature names; `composition.csv` replaces the `count_…` columns; `rules.csv` has one expression column per kind of rule. `recovered` redefined for all modes. Table T3 added. |

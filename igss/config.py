@@ -117,6 +117,15 @@ SWEEPS = {
         "N_D": [0, 32],
         "B": [2, 5, 10],
     },
+    # The same grid with execution error; a sweep of its own, so that the runs
+    # of ir2_env are not repeated.
+    "ir2_env_e005": {
+        **_IR_MODE_2,
+        "N_C": [0, 32],
+        "N_D": [0, 32],
+        "B": [2, 5, 10],
+        "E_ACTION": [0.05],
+    },
     "ir2_rounds": {**_IR_MODE_2, "ROUNDS": [100, 400, 1600]},
     # A shorter run is exactly the start of a longer one, so G is varied by
     # running 200 generations and reading the earlier ones.

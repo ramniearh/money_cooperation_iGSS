@@ -58,7 +58,7 @@ def test_first_sweep_matches_spec():
 
 def test_ir_mode_2_sweeps_match_spec():
     # SPEC §14.5: IR, mode 2, aggregate scoring, 10 seeds per combination.
-    expected_cells = {"ir2_env": 12, "ir2_rounds": 3, "ir2_generations": 1,
+    expected_cells = {"ir2_env": 12, "ir2_env_e005": 12, "ir2_rounds": 3, "ir2_generations": 1,
                       "ir2_parsimony": 3, "ir2_depth": 3, "ir2_tournament": 3}
     for sweep_name, n_cells in expected_cells.items():
         cells = config.sweep_cells(sweep_name)
@@ -68,6 +68,10 @@ def test_ir_mode_2_sweeps_match_spec():
             assert (cfg["MODE"], cfg["MODEL"], cfg["SCORING"]) == (2, "IR", "aggregate")
     assert {(c["N_C"], c["N_D"], c["B"]) for c in config.sweep_cells("ir2_env")} == {
         (n_c, n_d, b) for n_c in (0, 32) for n_d in (0, 32) for b in (2, 5, 10)}
+    # ir2_env_e005 is the grid of ir2_env with e_action = 0.05 and nothing else changed.
+    without_error = [{**c, "E_ACTION": 0.05} for c in config.sweep_cells("ir2_env")]
+    assert config.sweep_cells("ir2_env_e005") == without_error
+    assert {c["E_ACTION"] for c in config.sweep_cells("ir2_env")} == {0.0}
     assert [c["ROUNDS"] for c in config.sweep_cells("ir2_rounds")] == [100, 400, 1600]
     assert [c["GENERATIONS"] for c in config.sweep_cells("ir2_generations")] == [200]
     assert [c["PARSIMONY_TAX"] for c in config.sweep_cells("ir2_parsimony")] == [0.0, 0.01, 0.05]
