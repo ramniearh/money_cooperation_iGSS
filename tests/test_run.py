@@ -35,6 +35,16 @@ def test_small_sweep_writes_the_three_files(tmp_path):
     assert all(row["bit_string"].startswith("TT:") for row in rule_rows)
     assert {row["recovered"] for row in runs} <= {"0", "1"}
 
+    # literature names are output labels taken from SPEC §16
+    labels = {(row["model"], row["bit_string"]): row for row in read(directory / "labels.csv")}
+    assert labels[("DR", "TT:10")]["literature_name"] == "Tit-for-Tat"
+    assert labels[("IR", "TT:10")]["literature_name"] == "Standing"
+    assert labels[("IR", "TT:01")]["literature_name"] == "unnamed"
+    assert labels[("DR", "TT:10")]["canonical"] == "1"
+    for row in runs:
+        if row["most_common"] == "TT:10":
+            assert row["most_common_name"] == labels[(row["model"], "TT:10")]["literature_name"]
+
 
 def test_baseline_command_writes_its_file(tmp_path):
     run.main(["--out", str(tmp_path), "baseline", "smoke"])

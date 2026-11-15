@@ -116,6 +116,45 @@ ASSESSMENT_BITS = {name: bit_string(rule, 2) for name, rule in ASSESSMENT_RULES.
 
 
 # ---------------------------------------------------------------------------
+# Output labels (SPEC §16)
+#
+# A strategy is an action rule together with the assessment rule it runs with.
+# This is the only place literature names appear in the code. They are used to
+# label output and play no part in what is run or measured.
+# ---------------------------------------------------------------------------
+
+ACTION_DESCRIPTIONS = {
+    "always_cooperate": "always cooperate",
+    "follow_input": "follow the input",
+    "reverse_input": "reverse the input",
+    "always_defect": "always defect",
+}
+
+_NAMED_STRATEGIES = {
+    ("DR", "follow_input", "what_donor_did"): "Tit-for-Tat",
+    ("DR", "follow_input", "cooperated_with_a_one"): "Grim Trigger",
+    ("IR", "follow_input", "did_not_refuse_a_one"): "Standing",
+    ("IR", "follow_input", "what_donor_did"): "Image Scoring",
+    ("IR", "follow_input", "action_matches_other_bit"): "Stern Judging",
+    ("IR", "follow_input", "cooperated_with_a_one"): "Shunning",
+}
+LITERATURE_NAMES = {
+    (model, ACTION_BITS[action], ASSESSMENT_BITS[assessment]): name
+    for (model, action, assessment), name in _NAMED_STRATEGIES.items()
+}
+UNNAMED = "unnamed"
+
+
+def literature_name(model, action_bits, assessment_bits):
+    """The literature's name for a strategy, or "unnamed" (SPEC §16)."""
+    if action_bits == ACTION_BITS["always_cooperate"]:
+        return "unconditional cooperation"
+    if action_bits == ACTION_BITS["always_defect"]:
+        return "unconditional defection"
+    return LITERATURE_NAMES.get((model, action_bits, assessment_bits), UNNAMED)
+
+
+# ---------------------------------------------------------------------------
 # Expressions (SPEC §9): add, sub, mul over the input and the constants 0, 1
 # ---------------------------------------------------------------------------
 

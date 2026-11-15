@@ -17,8 +17,8 @@ from igss.scoring import SCORING_OPTIONS
 BASE = {
     # --- Environment: who is in an episode ---------------------------------
     "N_IGSS": 32,              # N_I: iGSS agents per episode (must equal POP_SIZE under individual scoring)
-    "N_C": 10,                 # unconditional cooperators
-    "N_D": 10,                 # unconditional defectors
+    "N_C": 32,                 # unconditional cooperators
+    "N_D": 32,                 # unconditional defectors
 
     # --- Game ---------------------------------------------------------------
     "B": 5,                    # benefit to the partner
@@ -55,8 +55,8 @@ SWEEPS = {
     "first": {
         "MODEL": ["DR", "IR"],
         "SCORING": ["individual", "aggregate"],
-        "N_C": [0, 10],
-        "N_D": [0, 10],
+        "N_C": [0, 32],
+        "N_D": [0, 32],
         "B": [2, 5],
         "E_ACTION": [0.0, 0.05],
     },

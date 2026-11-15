@@ -28,12 +28,15 @@ PARAMETER_COLUMNS = (
 )
 COUNT_COLUMNS = tuple("count_" + bits for bits in rules.ALL_ACTION_BITS)
 GENERATION_COLUMNS = (
-    PARAMETER_COLUMNS + ("generation",) + COUNT_COLUMNS + ("most_common", "mean_size")
+    PARAMETER_COLUMNS + ("generation",) + COUNT_COLUMNS
+    + ("most_common", "most_common_name", "mean_size")
     + SUMMARY_COLUMNS
 )
 RUN_COLUMNS = GENERATION_COLUMNS + ("tied", "recovered")
 RULE_COLUMNS = ("run_id", "generation", "rule_index", "expression", "simplified",
                 "size", "height", "bit_string", "score", "selection_score")
+LABEL_COLUMNS = ("model", "assessment_rule", "bit_string", "description", "literature_name",
+                 "canonical")
 ENVIRONMENT_COLUMNS = ("sweep", "code_version", "model", "assessment_rule",
                        "n_igss", "n_c", "n_d", "b", "c", "e_action", "rounds")
 
@@ -76,6 +79,7 @@ def run_rows(job):
     """Run one configuration; return its row for runs.csv and its rows for the other two files."""
     cfg, version = job
     parameters = parameter_values(cfg, version)
+    assessment_bits = rules.ASSESSMENT_BITS[config.assessment_rule(cfg)]
     generation_rows, rule_rows = [], []
     for record in search.run_evolution(cfg):
         generation = record["generation"]
@@ -84,6 +88,9 @@ def run_rows(job):
         for bits, count in record["counts"].items():
             row["count_" + bits] = count
         row["most_common"] = "+".join(tt(bits) for bits in record["most_common"])
+        row["most_common_name"] = "+".join(
+            rules.literature_name(cfg["MODEL"], bits, assessment_bits)
+            for bits in record["most_common"])
         row["mean_size"] = record["mean_size"]
         row.update(record["summary"])
         generation_rows.append(row)
@@ -124,9 +131,28 @@ def _writer(file, columns):
     return writer
 
 
+def write_labels(configurations, directory):
+    """labels.csv: what each bit string does and what the literature calls it (SPEC §16)."""
+    seen = {(cfg["MODEL"], config.assessment_rule(cfg)) for cfg in configurations}
+    with open(directory / "labels.csv", "w", newline="", encoding="utf-8") as file:
+        writer = _writer(file, LABEL_COLUMNS)
+        for model, assessment in sorted(seen):
+            assessment_bits = rules.ASSESSMENT_BITS[assessment]
+            for name, bits in rules.ACTION_BITS.items():
+                writer.writerow({
+                    "model": model,
+                    "assessment_rule": tt(assessment_bits),
+                    "bit_string": tt(bits),
+                    "description": rules.ACTION_DESCRIPTIONS[name],
+                    "literature_name": rules.literature_name(model, bits, assessment_bits),
+                    "canonical": int(name == rules.CANONICAL_ACTION_RULE),
+                })
+
+
 def write_runs(runs, directory, workers):
-    """Run every configuration and write runs.csv, generations.csv and rules.csv."""
+    """Run every configuration and write runs.csv, generations.csv, rules.csv and labels.csv."""
     version = code_version()
+    write_labels(runs, directory)
     jobs = [(cfg, version) for cfg in runs]
     with (open(directory / "runs.csv", "w", newline="", encoding="utf-8") as runs_file,
           open(directory / "generations.csv", "w", newline="", encoding="utf-8") as generations_file,
@@ -164,6 +190,7 @@ def baseline_environments(sweep_name):
 def write_baseline(sweep_name, directory):
     version = code_version()
     environments = baseline_environments(sweep_name)
+    write_labels(environments, directory)
     with open(directory / "baseline.csv", "w", newline="", encoding="utf-8") as file:
         writer = _writer(file, ENVIRONMENT_COLUMNS + baseline.BASELINE_COLUMNS)
         for done, cfg in enumerate(environments, start=1):

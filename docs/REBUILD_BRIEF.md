@@ -16,7 +16,7 @@ This is a **rebuild against a specification**, not a refactor of the legacy code
   2. to find choices the legacy code makes that SPEC.md does not, so that the authors can decide them explicitly;
   3. to identify peripheral code (plotting, log formatting) that may be ported later, once SPEC.md says what it must produce.
 
-Work goes in phases. **Each phase ends with a stop: report, then wait for an author's approval before starting the next.** Do one phase per session unless told otherwise.
+Work goes in phases. **Each phase ends with a report to the authors.** Phases 0 to 2 each ended with a stop for approval. From phase 3 on, the authors asked for a lighter loop (15 November 2026): design points that can change which rules evolve are agreed first, the rest is chosen by the assistant and recorded in SPEC §13 with status "assistant", and several modules may be built in one task. `CLAUDE.md` has the current rules.
 
 ---
 
@@ -79,29 +79,34 @@ Put proposed changes to SPEC.md in the plan, as quoted text marked "proposed". D
 
 **Stop.** Report the plan. The authors will update SPEC.md (or ask you to apply agreed changes) before phase 3.
 
-## Phase 3 — Build mode 1, one module at a time
+## Phase 3 — Build mode 1 (done, 15 November 2026)
 
 Follow SPEC §11 and the working loop in `CLAUDE.md`. For each module, in order (`rules.py`, `episode.py`, `baseline.py`, `scoring.py`, `search.py`, `config.py`, `run.py`):
 
-1. Plan the module against the SPEC sections it implements, and wait for approval.
-2. Write the tests listed in SPEC §11 first, and show them failing.
-3. Write the module, and show the tests passing.
-4. List every assumption not stated in SPEC.md.
-5. Commit with a message naming the SPEC section.
-6. **Stop** for review. A fresh session may then review the change against SPEC.md (SPEC §12, item 7).
+1. Write the tests listed in SPEC §11 and the module, and show the tests passing.
+2. Commit with a message naming the SPEC section.
+3. At the end of the task, list every assumption not stated in SPEC.md and show a short smoke run.
+
+A fresh session may then review the code against SPEC.md (SPEC §12, item 7).
 
 Smoke runs of a few generations are allowed, to check that the code runs. Their numbers are not results and are not written into any doc.
 
-## Phase 4 — Outputs and figures
+## Phase 4 — Outputs and figures (done for mode 1, 15 November 2026)
 
-Start only after SPEC §10 has an agreed "Figures" subsection.
+- The output files are specified in SPEC §10 and written by `igss/run.py`.
+- The figures are specified in SPEC §10 and drawn by one R script, `R/figures.R`, from the CSV files of a sweep and its baseline.
+- The legacy plotting code was not ported; the new script was written against the new files.
 
-- Port or rewrite the peripheral code identified in phase 2 so that it reads the new CSV outputs.
-- Keep the R scripts in R unless the authors decide otherwise.
-- The same loop applies: plan, tests where they make sense (for example, that a figure script runs on a small fixture CSV), one change per commit, and a stop for review.
+## Phase 5 — Modes 2 and 3
+
+The design points of SPEC §14.4 are agreed with an author first. Then the same modules are extended, with tests, and SPEC §14 is brought up to the detail of §6 to §10.
+
+## Phase 6 — Review with the co-authors
+
+Once the code as a whole is built, a fresh session reviews it line by line against SPEC.md with the authors, starting from the rows of SPEC §13 marked "assistant" and "review".
 
 ## Out of scope for this brief
 
-- Modes 2 and 3, the combined DR+IR model, junk inputs and third-order IR (SPEC §14–15).
+- The combined DR+IR model, junk inputs and third-order IR (SPEC §15).
 - Full sweeps. The authors run them on their own machines from committed code.
 - Any edit inside `legacy/`.

@@ -41,13 +41,22 @@ dir.create(out_dir, showWarnings = FALSE)
 
 # Order and wording follow SPEC §6. Each bit string keeps its colour in every figure.
 rule_levels <- c("10", "11", "01", "00")
-rule_labels <- c(
-  "10" = "10  follow the input (canonical)",
-  "11" = "11  always cooperate",
-  "01" = "01  reverse the input",
-  "00" = "00  always defect",
-  "tie" = "tie for most common"
-)
+# Legend text comes from labels.csv, written by the Python code from SPEC §16:
+# what each bit string does and, where the model has one assessment rule in
+# this sweep, what the literature calls the resulting strategy.
+labels_table <- read_csv(file.path(sweep_dir, "labels.csv"), show_col_types = FALSE)
+labels_for <- function(the_model) {
+  rows <- labels_table |> filter(model == the_model)
+  with_names <- n_distinct(rows$assessment_rule) == 1
+  rows <- rows |> distinct(bit_string, .keep_all = TRUE)
+  text <- paste0(sub("^TT:", "", rows$bit_string), "  ", rows$description)
+  if (with_names) {
+    named <- rows$literature_name != "unnamed"
+    text[named] <- paste0(text[named], ": ", rows$literature_name[named])
+  }
+  text <- paste0(text, ifelse(rows$canonical == 1, " (canonical)", ""))
+  c(setNames(text, sub("^TT:", "", rows$bit_string)), "tie" = "tie for most common")
+}
 rule_colours <- c("10" = "#2a78d6", "11" = "#eb6834", "01" = "#1baf7a", "00" = "#eda100",
                   "tie" = "#898781")
 surface <- "#fcfcfb"
@@ -128,6 +137,7 @@ counts_long <- generations |>
 # --- F1: composition over time ------------------------------------------------------
 
 for (the_model in unique(generations$model)) {
+  rule_labels <- labels_for(the_model)
   for (the_scoring in unique(generations$scoring)) {
     data <- counts_long |>
       filter(model == the_model, scoring == the_scoring) |>
@@ -157,6 +167,7 @@ final <- runs |>
          rule = factor(rule, levels = c(rule_levels, "tie")))
 
 for (the_model in unique(final$model)) {
+  rule_labels <- labels_for(the_model)
   data <- final |>
     filter(model == the_model) |>
     count(scoring, cell, rule) |>
@@ -196,6 +207,7 @@ if (!is.null(runs_wanted)) {
                    payoff_d = "unconditional defectors")
   for (id in ids) {
     one <- generations |> filter(run_id == id)
+    if (nrow(one) > 0) rule_labels <- labels_for(one$model[1])
     if (nrow(one) == 0) { cat("no such run:", id, "\n"); next }
     top <- counts_long |> filter(run_id == id) |>
       mutate(panel = "number of rules with each bit string")
@@ -242,6 +254,7 @@ if (!is.null(baseline_dir)) {
   pairs <- baseline |> filter(kind == "pair")
 
   for (the_model in unique(baseline$model)) {
+    rule_labels <- labels_for(the_model)
     # F3: one box per rule; the background types' mean payoffs as marks beside them.
     data <- alone |> filter(model == the_model)
     background <- data |>

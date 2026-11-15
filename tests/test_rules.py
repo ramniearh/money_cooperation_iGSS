@@ -58,6 +58,19 @@ def test_assessment_rule_bit_strings_match_spec():
     }
 
 
+def test_literature_names_match_spec():
+    # SPEC §16.
+    assert rules.literature_name("DR", "10", "1100") == "Tit-for-Tat"
+    assert rules.literature_name("DR", "10", "1000") == "Grim Trigger"
+    assert rules.literature_name("IR", "10", "1101") == "Standing"
+    assert rules.literature_name("IR", "10", "1100") == "Image Scoring"
+    assert rules.literature_name("IR", "10", "1001") == "Stern Judging"
+    assert rules.literature_name("IR", "10", "1000") == "Shunning"
+    assert rules.literature_name("IR", "11", "1101") == "unconditional cooperation"
+    assert rules.literature_name("DR", "00", "1100") == "unconditional defection"
+    assert rules.literature_name("DR", "01", "1100") == "unnamed"
+
+
 def test_rule_from_bit_string_round_trip():
     for bits in ("11", "10", "01", "00", "1101", "1000"):
         n_inputs = 1 if len(bits) == 2 else 2
