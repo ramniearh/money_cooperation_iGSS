@@ -4,7 +4,7 @@ This file is the single source of truth for rebuilding the iGSS code from scratc
 
 The code must match this file, and any mismatch is a bug. A change in behaviour is made here first, or in the same commit as the code, and is recorded in the change log (§18).
 
-- **Status:** v1.2, written alongside the first build of mode 1.
+- **Status:** v1.2.1, written alongside the first build of mode 1.
   - Mode 1 is specified in full.
   - Modes 2 and 3 are specified in outline, with their open issues listed. They will be detailed before they are coded.
   - No results appear here.
@@ -415,22 +415,26 @@ The result of a run is the composition of the population over time, plus the exp
 
 The numbers in this table are illustrative, not results.
 
-**Figures (proposed; not yet built).** Every figure is drawn from the CSV files of one sweep or one baseline, by a script that takes the directory as its argument and writes image files beside the data. Rules are shown by bit string, with `10` marked; literature names appear only as labels taken from §16. The scripts stay in R unless the authors decide otherwise.
+**Figures.** Every figure is drawn from the CSV files of one sweep and its baseline by one R script, `R/figures.R`. It writes PNG and CSV files into `<sweep directory>/figures/`, and computes nothing that is not in the CSV files. No image is produced during a run: the legacy code saved two images per run (a payoff chart and a drawing of the returned expression); here the per-run chart is F5, drawn on request, and expressions are listed in T2.
+
+```
+Rscript R/figures.R <sweep directory> [--baseline <baseline directory>] [--runs all | id1,id2,...]
+```
+
+Rules are shown by bit string, each with a fixed colour, and `10` is marked as canonical. Panels and bars are labelled by the parameters that vary in the sweep (for example `n_c=0, n_d=10`), so the same script serves any sweep. Literature names do not appear in the figures at present.
 
 | Figure | Shows | Data | Grouping |
 | --- | --- | --- | --- |
 | F1. Composition over time | For each generation, the share of the P rules with each bit string, averaged over seeds, as stacked areas. | `generations.csv`: `generation`, `count_…`. | One panel per environment; one figure per model and scoring option. |
-| F2. Final composition | The share of runs in which each bit string is the most common in the final generation, as stacked bars. The share for `10` is the recovery rate. | `runs.csv`: `most_common`. | Horizontal axis: `b` by `e_action`. Panels: `n_d` by `n_c`. One figure per model, the two scoring options side by side. |
+| F2. Final composition | The share of runs in which each bit string is the most common in the final generation, as stacked bars; ties are shown as their own category. The share for `10` is the recovery rate. | `runs.csv`: `most_common`, `tied`. | One bar per combination of the varying parameters. One figure per model, the two scoring options side by side. |
 | F3. Baseline, rules alone | The payoff per round of the iGSS agents when all carry one rule, as one box per rule over seeds, with the mean payoff of each background type marked. | `baseline.csv`, `kind = alone`. | One panel per environment; one figure per model. |
 | F4. Baseline, rules in pairs | For each pair of rules X and Y, `payoff_x − payoff_y`, as a grid of cells. | `baseline.csv`, `kind = pair`. | One grid per environment; one figure per model. |
-| F5. One run | By generation: the count of each bit string, and the payoff per round of the iGSS agents and of each background type. | `generations.csv`, one `run_id`. | One figure per run, on request, for checking. |
+| F5. One run | By generation: the count of each bit string, and the payoff per round of the iGSS agents and of each background type. | `generations.csv`, one `run_id`. | One figure per run, only with `--runs`. |
 
 | Table | Shows | Data |
 | --- | --- | --- |
-| T1. Search against baseline | For each environment and scoring option: which rules the baseline cannot tell apart, which rule the baseline ranks first, and the recovery rate. | `baseline.csv` and `runs.csv`. |
+| T1. Search against baseline | For each environment and scoring option: the recovery rate and the share of ties; the rule with the highest payoff alone; and whether input 0 was ever read when every iGSS agent used `10` (if not, `10` and `11` cannot be told apart there). | `baseline.csv` and `runs.csv`. |
 | T2. Expressions behind each bit string | For each bit string, the distinct simplified expressions in final generations and how many rules had each. | `rules.csv`, final generation. |
-
-For sweeps over search parameters (size penalty, depths, P), F2 is drawn with the search parameter on the horizontal axis.
 
 ## 11. Build plan for mode 1
 
@@ -440,6 +444,7 @@ The code is plain Python, with DEAP used for the search only. Mesa is not used: 
 
 ```
 igss/            new code (the package below)
+R/figures.R      figures and tables from the output files (§10)
 tests/           one test file per module
 docs/SPEC.md     this file
 legacy/          the August 2026 code, read-only
@@ -558,7 +563,7 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | Recovery criterion | `10` alone is the most common bit string in the final generation; ties reported separately | assistant | majority over the last X generations; its share of the population |
 | Repository layout | as in §11 | proposed | — |
 | Tooling | Python 3.14; DEAP 1.4.3, SymPy 1.14.0 and pytest 9.2.0 pinned in `requirements.txt`. DEAP's operators define parts of the model, so its version is part of this specification. | assistant | — |
-| Figures | as proposed in §10; not yet built | proposed | — |
+| Figures | as in §10: one R script, `R/figures.R`; no images during runs; no drawing of expression trees | assistant | drawing expression trees, as the legacy code did; T1 does not yet use the in-pairs runs |
 | Even populations | P and N_I are even; checked at start-up | decided | — |
 | Benefit and cost | c = 1 in all runs; the configuration holds b and c | decided | holding the ratio b/c |
 | Agent ids and list order | iGSS agents, then cooperators, then defectors; id = position | assistant | — |
@@ -734,6 +739,7 @@ Newest first. Git history records every edit; this log records changes in meanin
 | Version | Date | Change |
 | --- | --- | --- |
 | v1.2 | 15 Nov 2026 | Written with the first build of mode 1, after an author's review of `docs/rebuild_plan.md`. Execution error decided: one-way, every donor, both models. Constants are two fixed terminals. N_I (iGSS agents per episode) separated from P for aggregate scoring; E (episodes per scoring) added. A size penalty, `PARSIMONY_TAX`, added as a search parameter, 0 in the base configuration. Every parameter can now be varied through named sweeps. Seed scheme, generation numbering, agent order and DEAP details written out. Output files and columns specified; a background type with no agents is logged as empty cells. Figures proposed. `config.py` and the commands described. New status values "assistant" and "review" in §13, and the header now lets the assistant make and record choices that cannot change which rules evolve. Legacy findings added to §17. |
+| v1.2.1 | 15 Nov 2026 | Figures built as `R/figures.R` and §10 "Figures" rewritten to match: panels are labelled by the parameters that vary, F2 shows ties, T1 defined, no images during runs. |
 | v1.1 | 14 Nov 2026 | Moved from a Claude Doc into the repository, with numbered sections. Clarifications that make no change in meaning: the IR standing update now says the partner's standing used is the value the donor read; aggregate scoring is described as the "mean" payoff throughout (v1.0 said "total" once). Execution error reopened. v1.0 silently assumed one-way error (the IR convention) for both models, and its tests pulled in opposite directions on whether background agents are subject to error. The direction of error and its scope are now open decisions in §13, and the e_action test waits on them. New proposed rows: seed scheme, repository layout, tooling. Depth-limit wording aligned with DEAP (`staticLimit` returns one of the parents). Figures marked as open. |
 | v1.0 | 13 Nov 2026 | Basis for coding mode 1. Plain-language walk-through added. "World" renamed "episode". Individual and aggregate scoring kept as two explicitly named options, compared side by side. Mode 1 fully specified, with environments for the first sweep, build plan and tests. Every remaining choice written into the decision register as decided or proposed. Modes 2 and 3 in outline, with assessment-rule tables and open issues, including separate error types. |
 | v0.5 | 13 Nov 2026 | Junk inputs dropped; modes 1–3 described; baseline as rules alone and in pairs; one episode per generation; N_C, N_D; "iGSS agent". |
