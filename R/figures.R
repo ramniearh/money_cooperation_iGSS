@@ -11,6 +11,10 @@
 #   F2  final composition: share of runs in which each strategy name ends most common
 #   F3  baseline: payoff per round of each strategy when every iGSS agent uses it
 #   F5  one run (only with --runs): composition and payoffs by generation
+#   F6  final composition against one varying parameter, one line per strategy name
+#   F7  final composition over two varying parameters, as shaded cells
+#   F8  most common strategy by generation, as a share of runs
+#   T4  final composition by name: the numbers behind F6 and F7
 #   T1  search against baseline (needs --baseline)
 #   T2  expressions behind each strategy in final generations
 #   T3  most common strategies in final generations, by bit strings
@@ -225,6 +229,163 @@ t3 <- runs |>
   count(mode, model, scoring, cell, most_common, most_common_name, name = "runs") |>
   arrange(mode, model, scoring, cell, desc(runs))
 save_table(t3, "T3_most_common_strategies")
+
+# --- Final composition by name: T4, F6, F7; and F8 --------------------------------------
+
+# Two measures of how often a strategy name is found at the end of the runs (SPEC §10):
+#   ends most common: the share of runs in which the name alone is the most common
+#                     in the final generation; ties are their own category;
+#   final share:      the share of the P rules with the name in the final generation,
+#                     averaged over runs.
+measure_labels <- c(ends_most_common = "ends most common\n(share of runs)",
+                    final_share = "final share\n(mean share of the population)")
+sequential <- c("#cde2fb", "#86b6ef", "#3987e5", "#1c5cab", "#0d366b")  # one hue, light to dark
+
+# "n_d=0, b=2" for each row of `data`, as a factor ordered by the columns' values.
+label_of <- function(data, columns, empty) {
+  if (length(columns) == 0) return(factor(rep(empty, nrow(data))))
+  parts <- lapply(columns, function(column) paste0(column, "=", data[[column]]))
+  labels <- do.call(paste, c(parts, sep = ", "))
+  factor(labels, levels = unique(labels[do.call(order, unname(as.list(data[columns])))]))
+}
+
+final_measures <- function(the_mode, the_model, the_scoring) {
+  n <- names_of(the_model)
+  selected <- runs |> filter(mode == the_mode, model == the_model, scoring == the_scoring)
+  cells <- selected |> distinct(cell, across(all_of(cell_columns)))
+  ends <- selected |>
+    mutate(strategy_name = factor(ifelse(tied == 1, tie_label, most_common_name),
+                                  levels = n$with_tie)) |>
+    count(cell, strategy_name, name = "runs_most_common") |>
+    complete(cell = cells$cell, strategy_name, fill = list(runs_most_common = 0))
+  shares <- by_name |>
+    inner_join(selected |> select(run_id, cell, pop_size, generations), by = "run_id") |>
+    filter(generation == generations) |>
+    mutate(strategy_name = factor(strategy_name, levels = n$with_tie)) |>
+    group_by(cell, strategy_name) |>
+    summarise(total_share = sum(count / pop_size), .groups = "drop")
+  ends |>
+    left_join(shares, by = c("cell", "strategy_name")) |>
+    left_join(selected |> count(cell, name = "runs"), by = "cell") |>
+    left_join(cells, by = "cell") |>
+    mutate(mode = the_mode, model = the_model, scoring = the_scoring,
+           ends_most_common = runs_most_common / runs,
+           # A name absent from a run's final generation has share 0 in that run.
+           final_share = ifelse(strategy_name == tie_label, NA,
+                                coalesce(total_share, 0) / runs))
+}
+
+scoring_groups <- runs |> distinct(mode, model, scoring) |> arrange(mode, model, scoring)
+t4_parts <- list()
+
+for (g in seq_len(nrow(scoring_groups))) {
+  the_mode <- scoring_groups$mode[g]
+  the_model <- scoring_groups$model[g]
+  the_scoring <- scoring_groups$scoring[g]
+  n <- names_of(the_model)
+  tag <- paste0("mode", the_mode, "_", the_model, "_", the_scoring)
+  heading <- paste0("mode ", the_mode, ", ", the_model, ", ", the_scoring, " scoring")
+
+  measures <- final_measures(the_mode, the_model, the_scoring)
+  t4_parts[[g]] <- measures |>
+    select(mode, model, scoring, all_of(cell_columns), strategy_name, runs,
+           ends_most_common, final_share)
+  long <- measures |>
+    pivot_longer(c(ends_most_common, final_share), names_to = "measure", values_to = "value") |>
+    filter(!is.na(value)) |>
+    mutate(measure_label = factor(measure_labels[measure], levels = measure_labels))
+  # Names that are 0 in every panel of a figure are left out of it.
+  present <- function(data) {
+    found <- data |> group_by(strategy_name) |> summarise(any = any(value > 0)) |> filter(any)
+    n$with_tie[n$with_tie %in% found$strategy_name]
+  }
+
+  # F6: both measures against each varying parameter, one line per name.
+  for (parameter in cell_columns) {
+    others <- setdiff(cell_columns, parameter)
+    data <- long
+    data$panel <- label_of(data, others, "all other parameters at their base values")
+    data$x <- factor(data[[parameter]], levels = sort(unique(data[[parameter]])))
+    shown <- present(data)
+    data <- data |> filter(strategy_name %in% shown)
+    plot <- ggplot(data, aes(x, value, colour = strategy_name, group = strategy_name)) +
+      geom_line(linewidth = 0.8) +
+      geom_point(size = 2.6) +
+      facet_grid(measure_label ~ panel) +
+      scale_colour_manual(values = n$colours, limits = shown) +
+      scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+      labs(title = paste0("F6. Final composition against ", parameter, ": ", heading),
+           subtitle = "How often each strategy is found in the final generation, by two measures",
+           x = parameter, y = NULL, caption = caption) +
+      theme_igss() +
+      theme(strip.text.y = element_text(angle = 0, hjust = 0)) +
+      guides(colour = guide_legend(nrow = if (length(shown) > 4) 2 else 1))
+    save_figure(plot, paste0("F6_final_by_", parameter, "_", tag),
+                width = max(min_width, 4.5 + 2.2 * n_distinct(data$panel)), height = 6.5)
+  }
+
+  # F7: one measure over the first two varying parameters, one row of panels per name.
+  if (length(cell_columns) >= 2) {
+    others <- cell_columns[-(1:2)]
+    for (measure_name in names(measure_labels)) {
+      data <- long |> filter(measure == measure_name)
+      data$panel <- label_of(data, others, "all other parameters at their base values")
+      data$x <- factor(data[[cell_columns[1]]], levels = sort(unique(data[[cell_columns[1]]])))
+      data$y <- factor(data[[cell_columns[2]]], levels = sort(unique(data[[cell_columns[2]]])))
+      shown <- present(data)
+      data <- data |>
+        filter(strategy_name %in% shown) |>
+        mutate(strategy_name = factor(strategy_name, levels = shown))
+      plot <- ggplot(data, aes(x, y, fill = value)) +
+        geom_tile(colour = surface, linewidth = 1.2) +
+        geom_text(aes(label = scales::percent(value, accuracy = 1), colour = value > 0.6),
+                  size = 3.4, show.legend = FALSE) +
+        facet_grid(strategy_name ~ panel) +
+        scale_fill_gradientn(colours = sequential, limits = c(0, 1), labels = scales::percent) +
+        scale_colour_manual(values = c(`TRUE` = "white", `FALSE` = ink)) +
+        scale_x_discrete(expand = c(0, 0)) +
+        scale_y_discrete(expand = c(0, 0)) +
+        labs(title = paste0("F7. Final composition over ", cell_columns[1], " and ",
+                            cell_columns[2], ": ", heading),
+             subtitle = sub("\n", " ", measure_labels[[measure_name]]),
+             x = cell_columns[1], y = cell_columns[2], caption = caption) +
+        theme_igss() +
+        theme(panel.grid = element_blank(), strip.text.y = element_text(angle = 0, hjust = 0),
+              legend.key.width = unit(3, "lines"))
+      save_figure(plot, paste0("F7_final_over_", cell_columns[1], "_", cell_columns[2], "_",
+                               measure_name, "_", tag),
+                  width = max(min_width, 4 + (0.9 * nlevels(data$x) + 0.4) * n_distinct(data$panel)),
+                  height = 3 + (0.5 * nlevels(data$y) + 0.3) * length(shown))
+    }
+  }
+
+  # F8: which name is the most common in each generation, as a share of runs.
+  data <- generations |>
+    filter(mode == the_mode, model == the_model, scoring == the_scoring) |>
+    mutate(name = factor(ifelse(grepl("+", most_common, fixed = TRUE), tie_label, most_common_name),
+                         levels = n$with_tie)) |>
+    count(cell, generation, name) |>
+    complete(nesting(cell, generation), name, fill = list(n = 0)) |>
+    group_by(cell, generation) |>
+    mutate(share = n / sum(n)) |>
+    ungroup()
+  plot <- ggplot(data, aes(generation, share, fill = name)) +
+    geom_area(colour = surface, linewidth = 0.3, show.legend = c(fill = TRUE)) +
+    facet_wrap(~cell, ncol = min(4, n_cells)) +
+    fill_scale(n, with_tie = TRUE) +
+    scale_y_continuous(labels = scales::percent, expand = c(0, 0)) +
+    scale_x_continuous(expand = c(0, 0)) +
+    labs(title = paste0("F8. Most common strategy by generation: ", heading),
+         subtitle = "Share of runs in which each strategy is the most common in that generation",
+         x = "generation", y = "share of runs", caption = caption) +
+    theme_igss() +
+    guides(fill = guide_legend(nrow = 2))
+  save_figure(plot, paste0("F8_most_common_by_generation_", tag),
+              width = max(min_width, 3 + 2.6 * min(4, n_cells)),
+              height = 2.5 + 2.2 * ceiling(n_cells / 4))
+}
+
+save_table(bind_rows(t4_parts), "T4_final_by_name")
 
 # --- F5: single runs, on request --------------------------------------------------------
 
