@@ -4,7 +4,7 @@ This file is the single source of truth for rebuilding the iGSS code from scratc
 
 The code must match this file, and any mismatch is a bug. A change in behaviour is made here first, or in the same commit as the code, and is recorded in the change log (§18).
 
-- **Status:** v1.4, written alongside the first build of modes 1, 2 and 3.
+- **Status:** v1.5, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
   - Modes 1, 2 and 3 are specified and built. The main focus for now is aggregate scoring; individual scoring is built and kept as a separate question.
   - No results appear here.
 - **Every choice is listed** in the decision register (§13). A choice not written here must not be made silently in code.
@@ -441,14 +441,25 @@ Strategies are grouped and coloured by their literature name (§16), each name w
 | F2. Final composition | The share of runs in which each strategy name is the most common in the final generation, as stacked bars; ties are their own category. | `runs.csv`: `most_common_name`, `tied`. | One bar per combination of the varying parameters; the two scoring options side by side. |
 | F3. Baseline | The payoff per round of the iGSS agents when all use one strategy, as one box per strategy over seeds, with the mean payoff of each background type marked. | `baseline.csv`. | One panel per environment. |
 | F5. One run | By generation: the number of rules with each strategy name, and the payoff per round of the iGSS agents and of each background type. | `composition.csv` and `generations.csv`, one `run_id`. | One figure per run, only with `--runs`. |
+| F6. Final composition against a parameter | Both measures of final composition (below) for each strategy name, as one line per name, against the values of one varying parameter. | `runs.csv` and `composition.csv`, final generation. | One figure per varying parameter and scoring option; one column of panels per combination of the other varying parameters; one row of panels per measure. |
+| F7. Final composition over two parameters | One measure of final composition for each strategy name, as a grid of shaded cells over the first two varying parameters, with the value written in each cell. | As F6. | Drawn when at least two parameters vary. One figure per measure and scoring option; one row of panels per strategy name; one column per combination of the remaining varying parameters. |
+| F8. Most common strategy by generation | For each generation, the share of runs in which each strategy name is the most common, as stacked areas; ties are their own category. It shows what F2 would show had the runs stopped at that generation. | `generations.csv`: `most_common`, `most_common_name`. | One panel per combination of the varying parameters; one figure per scoring option. |
 
 There is no F4: it showed the runs in pairs, which were removed in v1.4.
+
+**Two measures of final composition.** F6, F7 and T4 report how often a strategy name is found at the end of the runs in two ways:
+
+- **ends most common:** the share of runs in which that name alone is the most common in the final generation. This is the measure behind F2 and `recovered`. Ties are their own category.
+- **final share:** the share of the P rules that have that name in the final generation, averaged over runs.
+
+The two differ when a name is common without being the most common. F6 and F7 leave out names that are 0 in every panel of the figure.
 
 | Table | Shows | Data |
 | --- | --- | --- |
 | T1. Search against baseline | For each environment and scoring option: the recovery rate and the share of ties; and the strategies with the highest payoff in the baseline. Strategies listed together there cannot be told apart in that environment. | `baseline.csv` and `runs.csv`. |
 | T2. Expressions behind each strategy | For each strategy, the distinct simplified expressions in final generations and how many rules had each. | `rules.csv`, final generation. |
 | T3. Most common strategies | For each combination of parameters, which strategies (by bit strings, not only by name) ended most common, and in how many runs. | `runs.csv`. |
+| T4. Final composition by name | For each combination of parameters and each strategy name: the number of runs, and both measures of final composition (above). The numbers behind F6 and F7. | `runs.csv` and `composition.csv`, final generation. |
 
 **A caution on "unnamed".** In modes 2 and 3 many unnamed strategies behave exactly like a named one. For example, with stored values starting at 1, the assessment rules `1111`, `1110`, `1011` and `1010` never produce a 0 (§14.2), so `10` with any of them acts as unconditional cooperation. F1 and F2 group by name and so show these as "unnamed"; T1 and T3 and the baseline (F3) show which strategies are behaviourally the same.
 
@@ -609,6 +620,11 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | Parallel runs | `--workers` runs several runs at once; rows are written in the same order whatever the number of workers | assistant | — |
 | The `base` sweep | the base configuration in every mode and model, aggregate scoring only, 10 seeds each: a first look before the full sweeps | assistant | — |
 | Sweeps other than the first | `rounds` and `parsimony` in `config.py` are examples with placeholder values, for the authors to edit | assistant | — |
+| Exploratory sweeps for IR in mode 2: design | §14.5: aggregate scoring; a full grid over N_C {0, 32} × N_D {0, 32} × b {2, 5, 10}; R, G and search parameters each varied alone; 10 seeds per combination | decided | 20 or 50 seeds; N_C and N_D of 16 or 64; e_action of 0.05; individual scoring |
+| Exploratory sweeps for IR in mode 2: values of the parameters varied alone | R: 100, 400, 1600. Size penalty: 0, 0.01, 0.05. Depth limit: 3, 5, 17. Tournament size: 2, 3, 7. An author asked for length of play, size penalty, depth and "other meaningful" search parameters to be varied; the values, and the choice of tournament size, are the assistant's. | proposed | other values; P; crossover and mutation probabilities; initial depths |
+| Varying G | one sweep with G = 200, read at earlier generations, because a shorter run is exactly the start of a longer one with the same seed (§14.5); a test checks this | assistant | separate runs for each G |
+| Second measure of final composition | "final share" (mean share of the final population) reported beside "ends most common" in F6, F7 and T4 (§10). It adds a reading of the same runs and changes nothing that is run. | assistant | majority over the last X generations |
+| One sweep per parameter varied alone | a sweep in `config.py` is a full grid, so each parameter varied alone is a named sweep of its own, with its own output directory | assistant | a sweep type that varies one factor at a time |
 
 **Parameters for the first sweep.**
 
@@ -705,6 +721,29 @@ There are 64 pairs per model, each identified by its two bit strings. When the a
 4. **Third input for IR.** `donor_standing` as a third assessment input, giving 8 rows and 256 rules, is left for later. The classification code accepts any number of inputs.
 5. **What counts as found.** `recovered` is 1 when the single most common strategy is one §16 names as a reciprocity strategy of the model. Unnamed strategies that behave like a named one are not counted; T1 and T3 (§10) show them.
 
+### 14.5 Exploratory sweeps for IR in mode 2
+
+A first look at how the final composition depends on the parameters, in one model and one mode: IR, mode 2, aggregate scoring. The object of interest is how often each named strategy (§16) is found at the end of the runs, to be set later against what the evolutionary literature without iGSS reports for the same parameters.
+
+The environment is varied as a full grid. Every other parameter is varied alone, with the rest at their base values (§6.3, §13). Each row below is one named sweep in `config.py`, with 10 seeds per combination.
+
+| Sweep | Varied | Values | Combinations |
+| --- | --- | --- | --- |
+| `ir2_env` | N_C × N_D × b | N_C: 0, 32; N_D: 0, 32; b: 2, 5, 10 | 12 |
+| `ir2_rounds` | R | 100, 400, 1600 | 3 |
+| `ir2_generations` | G | 200, read at earlier generations | 1 |
+| `ir2_parsimony` | size penalty (`PARSIMONY_TAX`) | 0, 0.01, 0.05 | 3 |
+| `ir2_depth` | depth limit (`DEPTH_LIMIT`) | 3, 5, 17 | 3 |
+| `ir2_tournament` | tournament size (`TOURNAMENT_SIZE`) | 2, 3, 7 | 3 |
+
+- **Length of play.** R is the only control on how long the game lasts (§6.3). In IR a donor reads a public standing, so what R changes is how many times each standing is updated and read, not how often a pair meets again.
+- **Generations.** Nothing in a run depends on G except when it stops: the run seed and the episode seeds (§9) do not involve G. A run with a smaller G is therefore exactly the first generations of a run with a larger G and the same seed. G is varied by running 200 generations once and reading the composition at earlier generations (F1 and F8, §10).
+- **Search parameters.** The size penalty is in units of payoff per round, per node (§7). The depth limit cannot be below the largest initial depth, 3. Tournament size sets the strength of selection: with size 2 the better of two random rules is kept, with size 7 the best of seven.
+- **The base combination is repeated.** Every sweep contains the base configuration (N_C = N_D = 32, b = 5, R = 400, and so on) with the same seeds, so those runs are identical across the sweeps for G up to 100.
+- e_action stays at 0, and P, the crossover and mutation probabilities and the initial depths stay at their base values. These are left for later sweeps (§13).
+
+These sweeps are small and exploratory. They are not the main output of §10, which rests on 50 seeds.
+
 ## 15. Later rungs
 
 - **Modes 2 and 3**, once the open issues in §14.4 are settled.
@@ -766,6 +805,7 @@ Newest first. Git history records every edit; this log records changes in meanin
 
 | Version | Date | Change |
 | --- | --- | --- |
+| v1.5 | 15 Nov 2026 | Exploratory sweeps for IR in mode 2 added (§14.5): an environment grid, and R, G, size penalty, depth limit and tournament size each varied alone. Figures F6, F7 and F8 and table T4 added (§10), with a second measure of final composition, "final share", beside "ends most common". Figures now have a minimum width. |
 | v1.2 | 15 Nov 2026 | Written with the first build of mode 1, after an author's review of `docs/rebuild_plan.md`. Execution error decided: one-way, every donor, both models. Constants are two fixed terminals. N_I (iGSS agents per episode) separated from P for aggregate scoring; E (episodes per scoring) added. A size penalty, `PARSIMONY_TAX`, added as a search parameter, 0 in the base configuration. Every parameter can now be varied through named sweeps. Seed scheme, generation numbering, agent order and DEAP details written out. Output files and columns specified; a background type with no agents is logged as empty cells. Figures proposed. `config.py` and the commands described. New status values "assistant" and "review" in §13, and the header now lets the assistant make and record choices that cannot change which rules evolve. Legacy findings added to §17. |
 | v1.4 | 15 Nov 2026 | Modes 2 and 3 built and §14 written out: assessment expressions, which assessment rule applies under each scoring option, mode 3 breeding, strategy classes. Runs in pairs removed from the baseline, the output and the figures (F4 dropped); the baseline is now each strategy alone, in every mode. The main focus is stated as aggregate scoring. R raised to 400. `MODE` added as a parameter without a base value. Outputs now identify strategies as `TT:action/assessment` with their literature names; `composition.csv` replaces the `count_…` columns; `rules.csv` has one expression column per kind of rule. `recovered` redefined for all modes. Table T3 added. |
 | v1.3 | 15 Nov 2026 | Base population sizes changed to N_I = N_C = N_D = 32 (the first sweep now uses N_C and N_D of 0 or 32). Literature names added to the output as labels: `most_common_name` and `labels.csv`, and the figure legends. §8 now says why the baseline has runs in pairs; §10 says how to read `baseline.csv`. |

@@ -56,6 +56,25 @@ def test_first_sweep_matches_spec():
     assert len(config.expand_sweep("first")) == 64 * 50
 
 
+def test_ir_mode_2_sweeps_match_spec():
+    # SPEC §14.5: IR, mode 2, aggregate scoring, 10 seeds per combination.
+    expected_cells = {"ir2_env": 12, "ir2_rounds": 3, "ir2_generations": 1,
+                      "ir2_parsimony": 3, "ir2_depth": 3, "ir2_tournament": 3}
+    for sweep_name, n_cells in expected_cells.items():
+        cells = config.sweep_cells(sweep_name)
+        assert len(cells) == n_cells, sweep_name
+        assert len(config.expand_sweep(sweep_name)) == n_cells * 10, sweep_name
+        for cfg in cells:
+            assert (cfg["MODE"], cfg["MODEL"], cfg["SCORING"]) == (2, "IR", "aggregate")
+    assert {(c["N_C"], c["N_D"], c["B"]) for c in config.sweep_cells("ir2_env")} == {
+        (n_c, n_d, b) for n_c in (0, 32) for n_d in (0, 32) for b in (2, 5, 10)}
+    assert [c["ROUNDS"] for c in config.sweep_cells("ir2_rounds")] == [100, 400, 1600]
+    assert [c["GENERATIONS"] for c in config.sweep_cells("ir2_generations")] == [200]
+    assert [c["PARSIMONY_TAX"] for c in config.sweep_cells("ir2_parsimony")] == [0.0, 0.01, 0.05]
+    assert [c["DEPTH_LIMIT"] for c in config.sweep_cells("ir2_depth")] == [3, 5, 17]
+    assert [c["TOURNAMENT_SIZE"] for c in config.sweep_cells("ir2_tournament")] == [2, 3, 7]
+
+
 def test_individual_scoring_needs_one_agent_per_rule():
     with pytest.raises(ValueError):
         config.validate({**config.BASE, "MODE": 1, "MODEL": "DR", "SCORING": "individual", "N_IGSS": 10})

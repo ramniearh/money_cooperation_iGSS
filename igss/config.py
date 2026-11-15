@@ -53,6 +53,9 @@ BASE = {
     "SIMPLIFY_MAX_SIZE": 50,   # expressions with more nodes get no SymPy form
 }
 
+# What the exploratory sweeps for IR in mode 2 have in common (SPEC §14.5).
+_IR_MODE_2 = {"MODE": [2], "MODEL": ["IR"], "SCORING": ["aggregate"], "SEEDS_PER_CELL": [10]}
+
 SWEEPS = {
     # A first look: the base configuration in every mode and model, under
     # aggregate scoring only, a few seeds each.
@@ -105,6 +108,22 @@ SWEEPS = {
         "B": [2, 5],
         "E_ACTION": [0.0, 0.05],
     },
+    # Exploratory sweeps for IR in mode 2 (SPEC §14.5): the environment as a full
+    # grid, then length of play, generations and three search parameters, each
+    # varied alone with everything else at its base value.
+    "ir2_env": {
+        **_IR_MODE_2,
+        "N_C": [0, 32],
+        "N_D": [0, 32],
+        "B": [2, 5, 10],
+    },
+    "ir2_rounds": {**_IR_MODE_2, "ROUNDS": [100, 400, 1600]},
+    # A shorter run is exactly the start of a longer one, so G is varied by
+    # running 200 generations and reading the earlier ones.
+    "ir2_generations": {**_IR_MODE_2, "GENERATIONS": [200]},
+    "ir2_parsimony": {**_IR_MODE_2, "PARSIMONY_TAX": [0.0, 0.01, 0.05]},
+    "ir2_depth": {**_IR_MODE_2, "DEPTH_LIMIT": [3, 5, 17]},
+    "ir2_tournament": {**_IR_MODE_2, "TOURNAMENT_SIZE": [2, 3, 7]},
     # A very small sweep, to check that everything runs. Its output means nothing.
     "smoke": {
         "MODE": [1, 2, 3],

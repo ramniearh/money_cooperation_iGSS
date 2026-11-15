@@ -32,6 +32,14 @@ def test_run_is_reproducible_from_its_seed(mode, model, scoring_option):
 
 
 @pytest.mark.parametrize("mode, model, scoring_option", CASES)
+def test_a_shorter_run_is_the_start_of_a_longer_one(mode, model, scoring_option):
+    # SPEC §14.5: nothing in a run depends on G except when it stops.
+    longer = search.run_evolution(small_config(mode, model, scoring_option, GENERATIONS=6))
+    shorter = search.run_evolution(small_config(mode, model, scoring_option, GENERATIONS=4))
+    assert shorter == longer[:4]
+
+
+@pytest.mark.parametrize("mode, model, scoring_option", CASES)
 def test_counts_add_up_to_population_size(mode, model, scoring_option):
     cfg = small_config(mode, model, scoring_option)
     records = search.run_evolution(cfg)
