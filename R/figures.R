@@ -71,6 +71,9 @@ theme_igss <- function() {
     )
 }
 
+# The narrowest a figure may be: room for the title and a two-row legend of names.
+min_width <- 9
+
 save_figure <- function(plot, name, width = 9, height = 6) {
   path <- file.path(out_dir, paste0(name, ".png"))
   ggsave(path, plot, width = width, height = min(height, 40), dpi = 150, limitsize = FALSE)
@@ -182,7 +185,7 @@ for (g in seq_len(nrow(groups))) {
       theme_igss() +
       guides(fill = guide_legend(nrow = 2))
     save_figure(plot, paste0("F1_composition_", tag, "_", the_scoring),
-                width = 3 + 2.6 * min(4, n_cells), height = 2.5 + 2.2 * ceiling(n_cells / 4))
+                width = max(min_width, 3 + 2.6 * min(4, n_cells)), height = 2.5 + 2.2 * ceiling(n_cells / 4))
   }
 
   # F2: which name ends most common, one bar per cell.
@@ -311,7 +314,7 @@ if (!is.null(baseline_dir)) {
       guides(fill = guide_legend(nrow = 2),
              shape = guide_legend(override.aes = list(fill = NA, linetype = 0)))
     save_figure(plot, paste0("F3_baseline_mode", the_mode, "_", the_model),
-                width = 3 + 3 * min(4, n_baseline_cells),
+                width = max(min_width, 3 + 3 * min(4, n_baseline_cells)),
                 height = 3.5 + (0.6 + 0.22 * n_strategies) * ceiling(n_baseline_cells / 4))
   }
 
