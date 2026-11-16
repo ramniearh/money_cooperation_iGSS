@@ -111,7 +111,9 @@ fill_scale <- function(n, with_tie = FALSE) {
 
 # --- Which parameters vary in this sweep -------------------------------------------
 
-parameter_columns <- c("n_igss", "n_c", "n_d", "b", "c", "e_action", "rounds", "pop_size",
+# `assessment_rule` is the fixed (base) assessment rule; it varies in sweeps that compare such rules.
+parameter_columns <- c("n_igss", "n_c", "n_d", "b", "c", "e_action", "rounds", "assessment_rule",
+                       "pop_size",
                        "generations", "episodes_per_score", "tournament_size", "cxpb", "mutpb",
                        "init_depth_min", "init_depth_max", "mut_depth_min", "mut_depth_max",
                        "depth_limit", "parsimony_tax")
@@ -542,7 +544,8 @@ if (!is.null(baseline_dir)) {
 
   # T1: for each environment and scoring option, what the baseline shows and what the search did.
   # Strategies that tie for the best payoff cannot be told apart in that environment.
-  environment_columns <- c("mode", "model", "n_igss", "n_c", "n_d", "b", "c", "e_action", "rounds")
+  environment_columns <- c("mode", "model", "assessment_rule", "n_igss", "n_c", "n_d", "b", "c",
+                           "e_action", "rounds")
   baseline_view <- baseline |>
     group_by(across(all_of(environment_columns)), strategy, strategy_name) |>
     summarise(payoff = mean(payoff_igss), .groups = "drop") |>

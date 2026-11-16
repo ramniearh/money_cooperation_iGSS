@@ -56,6 +56,14 @@ BASE = {
 # What the exploratory sweeps for IR in mode 2 have in common (SPEC §14.5).
 _IR_MODE_2 = {"MODE": [2], "MODEL": ["IR"], "SCORING": ["aggregate"], "SEEDS_PER_CELL": [10]}
 
+# What the sweeps of the broad exploratory sweep have in common (SPEC §14.7).
+# Proposed: not yet confirmed by an author.
+_BROAD = {"GENERATIONS": [200], "SEEDS_PER_CELL": [20]}
+_BROAD_SEARCH = {"GENERATIONS": [200], "SEEDS_PER_CELL": [10]}
+_ALL_MODELS_AND_MODES = {"MODE": [1, 2, 3], "MODEL": ["DR", "IR"]}
+_BOTH_SCORING_OPTIONS = {"SCORING": ["individual", "aggregate"]}
+_BACKGROUNDS_AND_ERROR = {"N_C": [0, 32], "N_D": [0, 32], "E_ACTION": [0.0, 0.05]}
+
 SWEEPS = {
     # A first look: the base configuration in every mode and model, under
     # aggregate scoring only, a few seeds each.
@@ -144,6 +152,64 @@ SWEEPS = {
         "GENERATIONS": [200],
         "SEEDS_PER_CELL": [20],
     },
+    # The broad exploratory sweep (SPEC §14.7): ten sweeps, each a full grid.
+    "broad_individual": {
+        **_ALL_MODELS_AND_MODES,
+        "SCORING": ["individual"],
+        "N_C": [0, 8, 32],
+        "N_D": [0, 8, 32],
+        "B": [2, 5, 10],
+        "E_ACTION": [0.0, 0.05],
+        **_BROAD,
+    },
+    "broad_aggregate": {
+        **_ALL_MODELS_AND_MODES,
+        "SCORING": ["aggregate"],
+        **_BACKGROUNDS_AND_ERROR,
+        "B": [2, 3, 5],
+        **_BROAD,
+    },
+    # Mode 1 with each named assessment rule as the fixed rule.
+    "broad_norms_ir": {
+        "MODE": [1],
+        "MODEL": ["IR"],
+        **_BOTH_SCORING_OPTIONS,
+        "IR_ASSESSMENT_RULE": ["did_not_refuse_a_one", "what_donor_did",
+                               "action_matches_other_bit", "cooperated_with_a_one"],
+        **_BACKGROUNDS_AND_ERROR,
+        "B": [10],
+        **_BROAD,
+    },
+    "broad_norms_dr": {
+        "MODE": [1],
+        "MODEL": ["DR"],
+        **_BOTH_SCORING_OPTIONS,
+        "DR_ASSESSMENT_RULE": ["what_donor_did", "cooperated_with_a_one"],
+        **_BACKGROUNDS_AND_ERROR,
+        "B": [10],
+        **_BROAD,
+    },
+    "broad_rounds": {
+        "MODE": [1, 2, 3],
+        "MODEL": ["DR"],
+        **_BOTH_SCORING_OPTIONS,
+        "ROUNDS": [100, 400, 1600],
+        **_BROAD,
+    },
+    "broad_episodes": {
+        **_ALL_MODELS_AND_MODES,
+        "SCORING": ["individual"],
+        "EPISODES_PER_SCORE": [1, 4],
+        **_BROAD,
+    },
+    "broad_parsimony": {**_ALL_MODELS_AND_MODES, **_BOTH_SCORING_OPTIONS,
+                        "PARSIMONY_TAX": [0.0, 0.01, 0.05], **_BROAD_SEARCH},
+    "broad_depth": {**_ALL_MODELS_AND_MODES, **_BOTH_SCORING_OPTIONS,
+                    "DEPTH_LIMIT": [3, 5, 17], **_BROAD_SEARCH},
+    "broad_tournament": {**_ALL_MODELS_AND_MODES, **_BOTH_SCORING_OPTIONS,
+                         "TOURNAMENT_SIZE": [2, 3, 7], **_BROAD_SEARCH},
+    "broad_long": {**_ALL_MODELS_AND_MODES, **_BOTH_SCORING_OPTIONS,
+                   "GENERATIONS": [500], "SEEDS_PER_CELL": [10]},
     # A very small sweep, to check that everything runs. Its output means nothing.
     "smoke": {
         "MODE": [1, 2, 3],

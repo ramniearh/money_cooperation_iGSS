@@ -93,6 +93,32 @@ def test_individual_look_matches_spec():
         for n_c in (0, 32) for n_d in (0, 32)}
 
 
+def test_broad_sweep_matches_spec():
+    # SPEC §14.7: combinations and runs of each of the ten sweeps.
+    expected = {"broad_individual": (324, 6480), "broad_aggregate": (144, 2880),
+                "broad_norms_ir": (64, 1280), "broad_norms_dr": (32, 640),
+                "broad_rounds": (18, 360), "broad_episodes": (12, 240),
+                "broad_parsimony": (36, 360), "broad_depth": (36, 360),
+                "broad_tournament": (36, 360), "broad_long": (12, 120)}
+    assert {name for name in config.SWEEPS if name.startswith("broad_")} == set(expected)
+    total = 0
+    for sweep_name, (n_cells, n_runs) in expected.items():
+        cells = config.sweep_cells(sweep_name)
+        assert len(cells) == n_cells, sweep_name
+        assert len(config.expand_sweep(sweep_name)) == n_runs, sweep_name
+        assert {c["GENERATIONS"] for c in cells} == ({500} if sweep_name == "broad_long" else {200})
+        total += n_runs
+    assert total == 13080
+
+    # The fixed assessment rules of the two norms sweeps are the named rules of SPEC §16.
+    def fixed_rules(sweep_name, key):
+        return {config.rules.ASSESSMENT_BITS[c[key]] for c in config.sweep_cells(sweep_name)}
+
+    assert fixed_rules("broad_norms_ir", "IR_ASSESSMENT_RULE") == {"1101", "1100", "1001", "1000"}
+    assert fixed_rules("broad_norms_dr", "DR_ASSESSMENT_RULE") == {"1100", "1000"}
+    assert {c["MODE"] for c in config.sweep_cells("broad_norms_ir")} == {1}
+
+
 def test_individual_scoring_needs_one_agent_per_rule():
     with pytest.raises(ValueError):
         config.validate({**config.BASE, "MODE": 1, "MODEL": "DR", "SCORING": "individual", "N_IGSS": 10})

@@ -4,7 +4,7 @@ This file is the single source of truth for rebuilding the iGSS code from scratc
 
 The code must match this file, and any mismatch is a bug. A change in behaviour is made here first, or in the same commit as the code, and is recorded in the change log (§18).
 
-- **Status:** v1.6, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
+- **Status:** v1.7, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
   - Modes 1, 2 and 3 are specified and built. The main focus for now is aggregate scoring; individual scoring is built and kept as a separate question.
   - No results appear here.
 - **Every choice is listed** in the decision register (§13). A choice not written here must not be made silently in code.
@@ -630,6 +630,8 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | Varying G | one sweep with G = 200, read at earlier generations, because a shorter run is exactly the start of a longer one with the same seed (§14.5); a test checks this | assistant | separate runs for each G |
 | Second measure of final composition | "final share" (mean share of the final population) reported beside "ends most common" in F6, F7 and T4 (§10). It adds a reading of the same runs and changes nothing that is run. | assistant | majority over the last X generations |
 | First look at individual scoring | `individual_look` (§14.6): both models, modes 1 to 3, the four backgrounds, b = 10, e_action = 0, G = 200, 20 seeds. An author asked for b = 10 and all backgrounds, and accepted the assistant's values for the rest. | decided | e_action of 0.05; E above 1; runs started from a chosen rule; a baseline for individual scoring |
+| Broad exploratory sweep | §14.7: ten named sweeps over both models, all modes and both scoring options; G = 200; 20 seeds (10 for the search parameters and the long runs). Drafted by the assistant at an author's request. | proposed | every factor and value in §14.7; 50 seeds; other background sizes; the points §14.7 lists as needing new code |
+| Assessment rule as a varying parameter in figures | when the fixed assessment rule varies within a sweep, the figures label panels with it and T1 matches baseline and runs on it | assistant | — |
 | Cooperation figure | F9 and T5 (§10): the five logged cooperation rates of the final generation, as means over runs with each run shown | assistant | cooperation by generation |
 | One sweep per parameter varied alone | a sweep in `config.py` is a full grid, so each parameter varied alone is a named sweep of its own, with its own output directory | assistant | a sweep type that varies one factor at a time |
 
@@ -782,6 +784,45 @@ Everything else is at its base value. That is 24 combinations and 480 runs.
 - **No baseline.** The baseline (§8) measures a strategy among copies of itself, which is what aggregate scoring rewards. It does not predict the outcome under individual scoring; a baseline for it is still open (§13).
 - **Noise.** With E = 1, a score rests on 400 decisions (§7).
 
+### 14.7 A broad exploratory sweep (proposed)
+
+A wider look at both models, all three modes and both scoring options, designed after the exploratory sweeps of §14.5 and §14.6. It is a proposal: its factors and values are not yet confirmed by an author (§13). It is made of ten named sweeps in `config.py`, each a full grid, which can be run separately and in any order.
+
+Every sweep uses G = 200, because 100 generations were read as too few in mode 2 (§14.5), and 20 seeds per combination unless the table says otherwise. Parameters not listed are at their base values.
+
+| Sweep | Question | Fixed | Varied | Combinations | Runs |
+| --- | --- | --- | --- | --- | --- |
+| `broad_individual` | Where does reciprocity hold under individual scoring? | individual scoring | model × mode × N_C {0, 8, 32} × N_D {0, 8, 32} × b {2, 5, 10} × e_action {0, 0.05} | 324 | 6480 |
+| `broad_aggregate` | The same for aggregate scoring. | aggregate scoring | model × mode × N_C {0, 32} × N_D {0, 32} × b {2, 3, 5} × e_action {0, 0.05} | 144 | 2880 |
+| `broad_norms_ir` | With the assessment rule fixed, as in the classical models, which rule lets `10` hold? | IR, mode 1, b = 10 | scoring × assessment rule {`1101`, `1100`, `1001`, `1000`} × N_C {0, 32} × N_D {0, 32} × e_action {0, 0.05} | 64 | 1280 |
+| `broad_norms_dr` | The same for DR. | DR, mode 1, b = 10 | scoring × assessment rule {`1100`, `1000`} × N_C {0, 32} × N_D {0, 32} × e_action {0, 0.05} | 32 | 640 |
+| `broad_rounds` | Does length of play matter in DR, where pairs must meet again? | DR | mode × scoring × R {100, 400, 1600} | 18 | 360 |
+| `broad_episodes` | Does a less noisy score change the outcome under individual scoring? | individual scoring | model × mode × E {1, 4} | 12 | 240 |
+| `broad_parsimony` | Search: size penalty. | 10 seeds | model × mode × scoring × `PARSIMONY_TAX` {0, 0.01, 0.05} | 36 | 360 |
+| `broad_depth` | Search: depth limit. | 10 seeds | model × mode × scoring × `DEPTH_LIMIT` {3, 5, 17} | 36 | 360 |
+| `broad_tournament` | Search: strength of selection. | 10 seeds | model × mode × scoring × `TOURNAMENT_SIZE` {2, 3, 7} | 36 | 360 |
+| `broad_long` | Has a run settled by generation 200? | G = 500, 10 seeds | model × mode × scoring | 12 | 120 |
+
+That is 13,080 runs.
+
+**Reasons for the values.**
+
+- **Background sizes.** Under individual scoring a small number of background agents may act differently from an equal number, so `broad_individual` adds 8 between 0 and 32. Under aggregate scoring the two-by-two grid of §14.5 is kept.
+- **b.** Under aggregate scoring selection uses only the order of the scores, and the order was read as changing between b = 2 and b = 5, so `broad_aggregate` adds 3 and drops 10. Under individual scoring a higher b is the more informative end, so `broad_individual` keeps 10.
+- **Execution error** is crossed with both environment grids. It was read as changing little in IR mode 2 under aggregate scoring, where the action rule is fixed; DR and modes 1 and 3 have not been looked at.
+- **Fixed assessment rules.** `broad_norms_ir` and `broad_norms_dr` run mode 1 with each named assessment rule of §16 as the fixed rule. Under individual scoring this is the set-up of the classical literature (§14.6).
+- **Length of play** is varied for DR only: in IR a donor reads a public standing, and R only averages out noise (§14.5). With N = 96, R of 100, 400 and 1600 gives about 1, 4 and 17 meetings per ordered pair.
+- **Generations** are varied as in §14.5, by one longer sweep read at earlier generations.
+
+**The baseline** (§8) is computed for `broad_aggregate`, the two `broad_norms` sweeps and `broad_rounds`. It does not predict the outcome under individual scoring (§14.6).
+
+**Not in this sweep, because each needs code that does not exist yet:**
+
+- the initial mix as a factor: runs started from a chosen rule or mix of rules, to separate "can it emerge" from "does it hold";
+- a baseline for individual scoring: one agent with rule X among agents with rule Y;
+- assessment error (§14.4, point 3);
+- private standings, where agents can disagree about a standing.
+
 ## 15. Later rungs
 
 - **Modes 2 and 3**, once the open issues in §14.4 are settled.
@@ -843,6 +884,7 @@ Newest first. Git history records every edit; this log records changes in meanin
 
 | Version | Date | Change |
 | --- | --- | --- |
+| v1.7 | 16 Nov 2026 | A broad exploratory sweep drafted as a proposal (§14.7): ten named sweeps over both models, all modes and both scoring options, including mode 1 with each named assessment rule as the fixed rule. Figures treat the fixed assessment rule as a parameter that can vary. |
 | v1.6 | 16 Nov 2026 | A first look at individual scoring added (§14.6): the sweep `individual_look`, and points to keep in mind when reading individual scoring in modes 2 and 3. |
 | v1.5.2 | 16 Nov 2026 | Figure F9 and table T5 added (§10): cooperation rates of the final generation against the varied parameters. |
 | v1.5.1 | 15 Nov 2026 | Sweep `ir2_env_e005` added (§14.5): the IR mode 2 environment grid with e_action = 0.05. The values of the parameters varied alone are now decided (§13). |
