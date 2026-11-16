@@ -80,4 +80,5 @@ def test_unconditional_classes_are_simulated_with_the_base_rule(model, action):
     members = [(action, bits) for bits in ("0000", "1111", "0011")]
     for strategies in (members, members[::-1]):
         _, summary = scoring.score_aggregate(strategies, env, seeds=["a"], n_igss=6)
-        assert summary == as_in_mode_1
+        # Equal up to rounding: the generation's summary is a weighted mean over the members.
+        assert summary == pytest.approx(as_in_mode_1)
