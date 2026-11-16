@@ -79,6 +79,20 @@ def test_ir_mode_2_sweeps_match_spec():
     assert [c["TOURNAMENT_SIZE"] for c in config.sweep_cells("ir2_tournament")] == [2, 3, 7]
 
 
+def test_individual_look_matches_spec():
+    # SPEC §14.6: 2 models x 3 modes x 2 N_C x 2 N_D, individual scoring, 20 seeds.
+    cells = config.sweep_cells("individual_look")
+    assert len(cells) == 24
+    assert len(config.expand_sweep("individual_look")) == 24 * 20
+    for cfg in cells:
+        assert cfg["SCORING"] == "individual"
+        assert (cfg["B"], cfg["E_ACTION"], cfg["GENERATIONS"]) == (10, 0.0, 200)
+        assert (cfg["ROUNDS"], cfg["EPISODES_PER_SCORE"]) == (400, 1)
+    assert {(c["MODE"], c["MODEL"], c["N_C"], c["N_D"]) for c in cells} == {
+        (mode, model, n_c, n_d) for mode in (1, 2, 3) for model in ("DR", "IR")
+        for n_c in (0, 32) for n_d in (0, 32)}
+
+
 def test_individual_scoring_needs_one_agent_per_rule():
     with pytest.raises(ValueError):
         config.validate({**config.BASE, "MODE": 1, "MODEL": "DR", "SCORING": "individual", "N_IGSS": 10})

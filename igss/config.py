@@ -133,6 +133,17 @@ SWEEPS = {
     "ir2_parsimony": {**_IR_MODE_2, "PARSIMONY_TAX": [0.0, 0.01, 0.05]},
     "ir2_depth": {**_IR_MODE_2, "DEPTH_LIMIT": [3, 5, 17]},
     "ir2_tournament": {**_IR_MODE_2, "TOURNAMENT_SIZE": [2, 3, 7]},
+    # A first look at individual scoring (SPEC §14.6).
+    "individual_look": {
+        "MODE": [1, 2, 3],
+        "MODEL": ["DR", "IR"],
+        "SCORING": ["individual"],
+        "N_C": [0, 32],
+        "N_D": [0, 32],
+        "B": [10],
+        "GENERATIONS": [200],
+        "SEEDS_PER_CELL": [20],
+    },
     # A very small sweep, to check that everything runs. Its output means nothing.
     "smoke": {
         "MODE": [1, 2, 3],

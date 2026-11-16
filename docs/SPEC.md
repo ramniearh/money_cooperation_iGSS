@@ -4,7 +4,7 @@ This file is the single source of truth for rebuilding the iGSS code from scratc
 
 The code must match this file, and any mismatch is a bug. A change in behaviour is made here first, or in the same commit as the code, and is recorded in the change log (§18).
 
-- **Status:** v1.5.2, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
+- **Status:** v1.6, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
   - Modes 1, 2 and 3 are specified and built. The main focus for now is aggregate scoring; individual scoring is built and kept as a separate question.
   - No results appear here.
 - **Every choice is listed** in the decision register (§13). A choice not written here must not be made silently in code.
@@ -629,6 +629,7 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | Exploratory sweeps for IR in mode 2: values of the parameters varied alone | R: 100, 400, 1600. Size penalty: 0, 0.01, 0.05. Depth limit: 3, 5, 17. Tournament size: 2, 3, 7. Proposed by the assistant, including the choice of tournament size, and confirmed by an author after the first run. | decided | other values; P; crossover and mutation probabilities; initial depths |
 | Varying G | one sweep with G = 200, read at earlier generations, because a shorter run is exactly the start of a longer one with the same seed (§14.5); a test checks this | assistant | separate runs for each G |
 | Second measure of final composition | "final share" (mean share of the final population) reported beside "ends most common" in F6, F7 and T4 (§10). It adds a reading of the same runs and changes nothing that is run. | assistant | majority over the last X generations |
+| First look at individual scoring | `individual_look` (§14.6): both models, modes 1 to 3, the four backgrounds, b = 10, e_action = 0, G = 200, 20 seeds. An author asked for b = 10 and all backgrounds, and accepted the assistant's values for the rest. | decided | e_action of 0.05; E above 1; runs started from a chosen rule; a baseline for individual scoring |
 | Cooperation figure | F9 and T5 (§10): the five logged cooperation rates of the final generation, as means over runs with each run shown | assistant | cooperation by generation |
 | One sweep per parameter varied alone | a sweep in `config.py` is a full grid, so each parameter varied alone is a named sweep of its own, with its own output directory | assistant | a sweep type that varies one factor at a time |
 
@@ -752,6 +753,35 @@ The environment is varied as a full grid. Every other parameter is varied alone,
 
 These sweeps are small and exploratory. They are not the main output of §10, which rests on 50 seeds.
 
+### 14.6 A first look at individual scoring
+
+A small sweep, `individual_look`, to see how the model behaves under individual scoring before a broader sweep is designed. It is not a result.
+
+| Factor | Values |
+| --- | --- |
+| model | DR, IR |
+| mode | 1, 2, 3 |
+| scoring | individual |
+| N_C | 0, 32 |
+| N_D | 0, 32 |
+| b | 10 |
+| e_action | 0 |
+| G | 200 |
+| seeds per combination | 20 |
+
+Everything else is at its base value. That is 24 combinations and 480 runs.
+
+**How individual scoring relates to the literature.** Selection on each agent's own payoff is the usual set-up of the literature on indirect reciprocity. Its classical models fix one assessment rule for the whole population and let the action rules compete: that is mode 1 under individual scoring. Modes 2 and 3 under individual scoring, where agents carry different assessment rules, are the less usual case.
+
+**Points to keep in mind when reading it.**
+
+- **Background partners.** A background agent never reads a stored value, so the rule it applies as partner does not change what it does. In IR it does change the donor's public standing, which iGSS donors read later. With N_C = N_D = 32, about two thirds of an agent's partners are background agents, so about two thirds of the assessments use the base rule.
+- **Weak selection on assessment rules** (§14.4, point 2). In IR the assessment rule an agent carries mostly affects other agents. In modes 2 and 3 its share of the population is therefore expected to drift.
+- **Names in modes 2 and 3.** A strategy is named after the assessment rule the agent itself carries. The standings in an episode are set by a mix of rules, so a name being the most common does not mean that rule is the one in force.
+- **The starting mix matters.** A rule's payoff depends on which other rules are present. The initial random expressions therefore decide more than the speed of the search: they can decide where a run ends.
+- **No baseline.** The baseline (§8) measures a strategy among copies of itself, which is what aggregate scoring rewards. It does not predict the outcome under individual scoring; a baseline for it is still open (§13).
+- **Noise.** With E = 1, a score rests on 400 decisions (§7).
+
 ## 15. Later rungs
 
 - **Modes 2 and 3**, once the open issues in §14.4 are settled.
@@ -813,6 +843,7 @@ Newest first. Git history records every edit; this log records changes in meanin
 
 | Version | Date | Change |
 | --- | --- | --- |
+| v1.6 | 16 Nov 2026 | A first look at individual scoring added (§14.6): the sweep `individual_look`, and points to keep in mind when reading individual scoring in modes 2 and 3. |
 | v1.5.2 | 16 Nov 2026 | Figure F9 and table T5 added (§10): cooperation rates of the final generation against the varied parameters. |
 | v1.5.1 | 15 Nov 2026 | Sweep `ir2_env_e005` added (§14.5): the IR mode 2 environment grid with e_action = 0.05. The values of the parameters varied alone are now decided (§13). |
 | v1.5 | 15 Nov 2026 | Exploratory sweeps for IR in mode 2 added (§14.5): an environment grid, and R, G, size penalty, depth limit and tournament size each varied alone. Figures F6, F7 and F8 and table T4 added (§10), with a second measure of final composition, "final share", beside "ends most common". Figures now have a minimum width. |
