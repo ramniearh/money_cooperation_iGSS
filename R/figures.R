@@ -137,8 +137,11 @@ add_cell <- function(data, columns) {
 
 text_columns <- cols(action_expression = "c", action_simplified = "c",
                      assessment_expression = "c", assessment_simplified = "c")
-runs <- read_csv(file.path(sweep_dir, "runs.csv"), show_col_types = FALSE)
-generations <- read_csv(file.path(sweep_dir, "generations.csv"), show_col_types = FALSE)
+# A commit id such as "61e0808" looks like a number in scientific notation, so it is read as text.
+version_column <- cols(code_version = "c")
+runs <- read_csv(file.path(sweep_dir, "runs.csv"), show_col_types = FALSE, col_types = version_column)
+generations <- read_csv(file.path(sweep_dir, "generations.csv"), show_col_types = FALSE,
+                        col_types = version_column)
 composition <- read_csv(file.path(sweep_dir, "composition.csv"), show_col_types = FALSE)
 rule_rows <- read_csv(file.path(sweep_dir, "rules.csv"), show_col_types = FALSE,
                       col_types = text_columns)
@@ -491,7 +494,8 @@ if (!is.null(runs_wanted)) {
 # --- Baseline: F3 and T1 ----------------------------------------------------------------
 
 if (!is.null(baseline_dir)) {
-  baseline <- read_csv(file.path(baseline_dir, "baseline.csv"), show_col_types = FALSE)
+  baseline <- read_csv(file.path(baseline_dir, "baseline.csv"), show_col_types = FALSE,
+                       col_types = version_column)
   baseline <- add_cell(baseline, varying(baseline))
   n_baseline_cells <- n_distinct(baseline$cell)
   baseline_caption <- paste0("baseline for sweep '", baseline$sweep[1], "', code ",
