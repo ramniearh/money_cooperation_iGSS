@@ -224,7 +224,9 @@ for (g in seq_len(nrow(groups))) {
 
 # --- T2 and T3: what is behind the names ------------------------------------------------
 
+# rules.csv carries the scoring option since v1.8; run_info supplies it for older files too.
 t2 <- rule_rows |>
+  select(-any_of("scoring")) |>
   inner_join(run_info, by = "run_id") |>
   filter(generation == generations) |>
   count(mode, model, scoring, strategy, strategy_name, action_simplified, assessment_simplified,

@@ -42,6 +42,10 @@ def test_small_sweep_writes_its_files(tmp_path):
         assert (row["payoff_c"] == "") == (row["n_c"] == "0")
         assert row["payoff_d"] != ""
     assert all(row["strategy"].startswith("TT:") for row in rule_rows)
+    # every row of every per-run file records the scoring option of its run
+    scoring_of = {row["run_id"]: row["scoring"] for row in runs}
+    for rows in (generations, composition, rule_rows):
+        assert all(row["scoring"] == scoring_of[row["run_id"]] for row in rows)
     assert {row["recovered"] for row in runs} <= {"0", "1"}
 
     # what evolves is what has an expression

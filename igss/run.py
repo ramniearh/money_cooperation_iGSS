@@ -32,8 +32,9 @@ GENERATION_COLUMNS = (
     + SUMMARY_COLUMNS
 )
 RUN_COLUMNS = GENERATION_COLUMNS + ("tied", "recovered")
-COMPOSITION_COLUMNS = ("run_id", "generation", "strategy", "strategy_name", "count")
-RULE_COLUMNS = ("run_id", "generation", "rule_index", "strategy", "strategy_name",
+# Every row of every per-run file records the scoring option (CLAUDE.md, hard rule 6).
+COMPOSITION_COLUMNS = ("run_id", "scoring", "generation", "strategy", "strategy_name", "count")
+RULE_COLUMNS = ("run_id", "scoring", "generation", "rule_index", "strategy", "strategy_name",
                 "action_expression", "action_simplified",
                 "assessment_expression", "assessment_simplified",
                 "size", "height", "score", "selection_score")
@@ -95,7 +96,8 @@ def run_rows(job):
 
         for strategy, count in record["counts"].items():
             composition_rows.append({
-                "run_id": cfg["RUN_ID"], "generation": generation, "strategy": strategy,
+                "run_id": cfg["RUN_ID"], "scoring": cfg["SCORING"],
+                "generation": generation, "strategy": strategy,
                 "strategy_name": record["names"][strategy], "count": count,
             })
 
@@ -103,7 +105,8 @@ def run_rows(job):
                      or generation % cfg["RULES_LOG_EVERY"] == 0)
         if is_logged:
             for rule in record["rules"]:
-                rule_row = {**rule, "run_id": cfg["RUN_ID"], "generation": generation}
+                rule_row = {**rule, "run_id": cfg["RUN_ID"], "scoring": cfg["SCORING"],
+                            "generation": generation}
                 if rule["size"] <= cfg["SIMPLIFY_MAX_SIZE"]:
                     for kind in ("action", "assessment"):
                         text = rule.get(kind + "_expression")
