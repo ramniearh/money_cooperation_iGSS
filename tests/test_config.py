@@ -119,6 +119,24 @@ def test_broad_sweep_matches_spec():
     assert {c["MODE"] for c in config.sweep_cells("broad_norms_ir")} == {1}
 
 
+@pytest.mark.parametrize("key, other_model", [("IR_ASSESSMENT_RULE", "DR"),
+                                              ("DR_ASSESSMENT_RULE", "IR")])
+def test_varying_a_models_assessment_rule_needs_that_model_alone(monkeypatch, key, other_model):
+    # Otherwise the other model's combinations would be run several times, identically.
+    model = key[:2]
+    factors = {"MODE": [1], "SCORING": ["aggregate"],
+               key: ["what_donor_did", "cooperated_with_a_one"]}
+    monkeypatch.setitem(config.SWEEPS, "both", {**factors, "MODEL": [model, other_model]})
+    with pytest.raises(ValueError):
+        config.sweep_cells("both")
+    monkeypatch.setitem(config.SWEEPS, "alone", {**factors, "MODEL": [model]})
+    assert len(config.sweep_cells("alone")) == 2
+    # One value for every combination repeats nothing, so it is allowed.
+    monkeypatch.setitem(config.SWEEPS, "one_value",
+                        {**factors, key: ["what_donor_did"], "MODEL": [model, other_model]})
+    assert len(config.sweep_cells("one_value")) == 2
+
+
 def test_individual_scoring_needs_one_agent_per_rule():
     with pytest.raises(ValueError):
         config.validate({**config.BASE, "MODE": 1, "MODEL": "DR", "SCORING": "individual", "N_IGSS": 10})

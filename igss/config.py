@@ -280,6 +280,13 @@ def sweep_cells(sweep_name, overrides=None):
     unknown = [name for name in factors if name not in PARAMETERS]
     if unknown:
         raise ValueError(f"sweep {sweep_name!r} names unknown parameters: {unknown}")
+    # Each model reads only its own assessment rule. Varying one model's rule in a sweep
+    # that also runs the other model would run that other model's combinations several
+    # times, identically, under different run ids.
+    for model in rules.MODELS:
+        key = model + "_ASSESSMENT_RULE"
+        if len(set(factors.get(key, []))) > 1 and set(factors.get("MODEL", [])) != {model}:
+            raise ValueError(f"sweep {sweep_name!r} varies {key}, so its MODEL must be [{model!r}] only")
     cells = []
     for values in itertools.product(*factors.values()):
         cells.append(validate({**BASE, **dict(zip(factors, values))}))

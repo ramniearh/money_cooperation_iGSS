@@ -619,6 +619,7 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | Per-rule logging | `rules.csv`, written every `RULES_LOG_EVERY` generations (10 in the base configuration) plus the first and last | assistant | every generation (set it to 1) |
 | Simplified form | SymPy expansion, only up to `SIMPLIFY_MAX_SIZE` nodes (50) | assistant | — |
 | Shape of `config.py` | `BASE`, `SWEEPS`, `expand_sweep`, `validate` (§11); no fallback values | assistant | — |
+| Varying the fixed assessment rule | `DR_ASSESSMENT_RULE` and `IR_ASSESSMENT_RULE` are separate parameters, and each model reads only its own. A sweep that varies one of them must run that model alone; otherwise it is refused, because the other model's combinations would be run several times, identically. | assistant | one parameter for both models |
 | Base values of swept parameters | in `BASE`: N_C = 32, N_D = 32, b = 5, e_action = 0. These apply only in sweeps that do not vary them. | assistant | — |
 | Base seed | `BASE_SEED` = 1 | assistant | — |
 | Quick run and smoke sweep | `quick`: the base configuration for 10 generations, one seed. `smoke`: a very small sweep used by the tests. Neither produces results. | assistant | — |
@@ -887,7 +888,7 @@ Newest first. Git history records every edit; this log records changes in meanin
 
 | Version | Date | Change |
 | --- | --- | --- |
-| v1.8 | 16 Nov 2026 | Corrections after a review. The classes `11/any` and `00/any` are simulated with the base assessment rule under aggregate scoring and in the baseline (§14.3), so their logged read counts no longer depend on the order of the population; scores are unchanged. |
+| v1.8 | 16 Nov 2026 | Corrections after a review. The classes `11/any` and `00/any` are simulated with the base assessment rule under aggregate scoring and in the baseline (§14.3), so their logged read counts no longer depend on the order of the population; scores are unchanged. A sweep that varies one model's assessment rule while running the other model is refused (§13). |
 | v1.7 | 16 Nov 2026 | A broad exploratory sweep drafted as a proposal (§14.7): ten named sweeps over both models, all modes and both scoring options, including mode 1 with each named assessment rule as the fixed rule. Figures treat the fixed assessment rule as a parameter that can vary. |
 | v1.6 | 16 Nov 2026 | A first look at individual scoring added (§14.6): the sweep `individual_look`, and points to keep in mind when reading individual scoring in modes 2 and 3. |
 | v1.5.2 | 16 Nov 2026 | Figure F9 and table T5 added (§10): cooperation rates of the final generation against the varied parameters. |
