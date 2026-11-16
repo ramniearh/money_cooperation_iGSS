@@ -120,7 +120,15 @@ parameter_columns <- c("n_igss", "n_c", "n_d", "b", "c", "e_action", "rounds", "
 
 varying <- function(data) {
   columns <- intersect(parameter_columns, names(data))
-  columns[vapply(columns, function(column) n_distinct(data[[column]]) > 1, logical(1))]
+  varies <- function(column) {
+    if (column == "assessment_rule" && "model" %in% names(data)) {
+      # DR and IR have different base rules, so this varies only if it does within a model.
+      any(tapply(data[[column]], data$model, n_distinct) > 1)
+    } else {
+      n_distinct(data[[column]]) > 1
+    }
+  }
+  columns[vapply(columns, varies, logical(1))]
 }
 
 # One label per combination of the varying parameters, for example "n_c=0, n_d=32".
