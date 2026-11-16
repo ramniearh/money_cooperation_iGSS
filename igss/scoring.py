@@ -51,10 +51,16 @@ def score_aggregate(strategies, env, seeds, n_igss):
     over the episodes. Its assessment rule is the one rule of the episode:
     every agent applies it, background agents included. Every strategy uses
     the same seeds, so strategies of the same class get exactly the same score
-    and are simulated only once.
+    and are simulated only once. The classes `11/any` and `00/any` are
+    simulated with the base assessment rule.
     """
     classes = [rules.strategy_class(action, assessment) for action, assessment in strategies]
-    representative = dict(zip(classes, strategies))
+    # One simulation per class. A class whose action rule never reads the stored value is
+    # simulated with the base assessment rule, whichever rules its members carry (SPEC §14.3).
+    representative = {
+        cls: (action, rules.assessment_in_force(action, assessment))
+        for cls, (action, assessment) in zip(classes, strategies)
+    }
     score_of, summary_of = {}, {}
     for cls, (action, assessment) in representative.items():
         summaries = []

@@ -21,13 +21,16 @@ def strategies_of_mode(mode):
     Mode 1: the 4 action rules with the base assessment rule (None).
     Mode 2: the canonical action rule with each of the 16 assessment rules.
     Mode 3: every action rule with every assessment rule, one per class.
+
+    The classes `11/any` and `00/any` are run with the base assessment rule (None).
     """
     actions = [rules.CANONICAL_ACTION_BITS] if mode == 2 else rules.ALL_ACTION_BITS
     assessments = [None] if mode == 1 else rules.ALL_ASSESSMENT_BITS
     by_class = {}
     for action in actions:
         for assessment in assessments:
-            by_class.setdefault(rules.strategy_class(action, assessment), (action, assessment))
+            by_class.setdefault(rules.strategy_class(action, assessment),
+                                (action, rules.assessment_in_force(action, assessment)))
     return list(by_class.values())
 
 

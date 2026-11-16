@@ -173,6 +173,17 @@ def strategy_class(action_bits, assessment_bits):
     return (action_bits, assessment_bits)
 
 
+def assessment_in_force(action_bits, assessment_bits):
+    """The assessment bits a strategy is simulated with when it plays among copies of itself.
+
+    None, meaning the environment's base rule, when the action rule never reads the stored
+    value (SPEC §14.3). The payoffs of such a strategy do not depend on the assessment rule,
+    but the stored values that are logged as read do, so every member of the class is given
+    the same rule: the base rule, as in mode 1.
+    """
+    return None if action_bits in _UNCONDITIONAL else assessment_bits
+
+
 def strategy_id(action_bits, assessment_bits):
     """The text that identifies a strategy class in the output, for example TT:10/1100."""
     return "TT:{}/{}".format(*strategy_class(action_bits, assessment_bits))

@@ -4,7 +4,7 @@ This file is the single source of truth for rebuilding the iGSS code from scratc
 
 The code must match this file, and any mismatch is a bug. A change in behaviour is made here first, or in the same commit as the code, and is recorded in the change log (§18).
 
-- **Status:** v1.7, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
+- **Status:** v1.8, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
   - Modes 1, 2 and 3 are specified and built. The main focus for now is aggregate scoring; individual scoring is built and kept as a separate question.
   - No results appear here.
 - **Every choice is listed** in the decision register (§13). A choice not written here must not be made silently in code.
@@ -399,7 +399,7 @@ The result of a run is the composition of the population over time, plus the exp
 - `recovered` is 1 when one strategy alone is the most common in the final generation and §16 names it as a reciprocity strategy of that model. In mode 1 this means `10` with the base assessment rule.
 - In `rules.csv` an expression column is empty when that rule does not evolve in the run's mode. `size` counts the nodes of all evolved expressions; `height` is that of the deepest.
 - Payoffs are per round. Under aggregate scoring, the per-generation payoffs, rates and read counts are averages over the P rules' episodes.
-- `coop_…` columns are shares of interactions in which the donor cooperated (action taken). `reads_one` and `reads_zero` are the number of times iGSS donors read each input value, per episode.
+- `coop_…` columns are shares of interactions in which the donor cooperated (action taken). `reads_one` and `reads_zero` are the number of times iGSS donors read each input value, per episode. For `11/any` and `00/any` under aggregate scoring they are those of an episode under the base assessment rule (§14.3).
 - **A type with no agents has empty cells.** When N_C = 0, `payoff_c` and `coop_igss_to_c` are empty, and likewise for N_D. R reads an empty cell as `NA`, so such rows drop out of means and charts and are never mistaken for a payoff of 0.
 - `…_simplified` is SymPy's expansion of the expression, for reading only. It is left empty when the rule has more than `SIMPLIFY_MAX_SIZE` nodes, because expanding very large expressions is slow.
 - Numbers are written unrounded.
@@ -604,6 +604,7 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | Mode 3 operators | each crossover or mutation acts on one of the two expressions, chosen with equal chance | decided | acting on both |
 | Baseline in modes 2 and 3 | every strategy class alone: 16 and 34 | decided | — |
 | Counting strategies | by class: `11` and `00` with any assessment rule are one class each (§14.3) | assistant | counting all 64 pairs separately |
+| Rule that `11/any` and `00/any` are simulated with | the base assessment rule, under aggregate scoring and in the baseline (§14.3). Before v1.8 it was the rule of whichever member came last in the population, and `1111` in the baseline, so the logged read counts of these classes were arbitrary. Scores were never affected. | assistant | simulating every member with its own rule; leaving the read counts of these classes empty |
 | Size in mode 3 | the size penalty counts the nodes of both expressions | assistant | — |
 | Even populations | P and N_I are even; checked at start-up | decided | — |
 | Benefit and cost | c = 1 in all runs; the configuration holds b and c | decided | holding the ratio b/c |
@@ -720,6 +721,8 @@ In both models, stored values start at 1. Rules `1111`, `1110`, `1011` and `1010
 ### 14.3 Classes of strategy
 
 There are 64 pairs per model, each identified by its two bit strings. When the action rule is `11` or `00`, the stored value is never read. The assessment rule then evolves without any selection pressure, and its bit string carries no information. Such pairs are therefore counted as one class each, written `11/any` and `00/any`, which leaves 2 + 32 = 34 classes. Under aggregate scoring all members of a class get the same score.
+
+**Which rule these two classes are simulated with.** Their payoffs and cooperation rates do not depend on the assessment rule, but the stored values do, and so do the logged read counts. Under aggregate scoring and in the baseline, `11/any` and `00/any` are therefore simulated with the base assessment rule, whichever rules the members carry. What they log is then exactly what `11` and `00` log in mode 1. Under individual scoring nothing changes: every agent applies the rule it carries (§14).
 
 ### 14.4 Points settled, and points left open
 
@@ -884,6 +887,7 @@ Newest first. Git history records every edit; this log records changes in meanin
 
 | Version | Date | Change |
 | --- | --- | --- |
+| v1.8 | 16 Nov 2026 | Corrections after a review. The classes `11/any` and `00/any` are simulated with the base assessment rule under aggregate scoring and in the baseline (§14.3), so their logged read counts no longer depend on the order of the population; scores are unchanged. |
 | v1.7 | 16 Nov 2026 | A broad exploratory sweep drafted as a proposal (§14.7): ten named sweeps over both models, all modes and both scoring options, including mode 1 with each named assessment rule as the fixed rule. Figures treat the fixed assessment rule as a parameter that can vary. |
 | v1.6 | 16 Nov 2026 | A first look at individual scoring added (§14.6): the sweep `individual_look`, and points to keep in mind when reading individual scoring in modes 2 and 3. |
 | v1.5.2 | 16 Nov 2026 | Figure F9 and table T5 added (§10): cooperation rates of the final generation against the varied parameters. |

@@ -51,3 +51,17 @@ def test_baseline_rows(mode, n_strategies):
     if mode != 2:  # mode 2 fixes the action rule at `10`
         assert names["TT:11/any"] == "unconditional cooperation"
     assert names["TT:10/1101"] == "Standing"
+
+
+@pytest.mark.parametrize("model", ["DR", "IR"])
+def test_unconditional_classes_use_the_base_rule_in_every_mode(model):
+    # SPEC §14.3: `11/any` and `00/any` are run with the base assessment rule, so the baseline
+    # of mode 3 logs for them exactly what the baseline of mode 1 logs for `11` and `00`.
+    env = environment(model, n_d=4, e_action=0.05)
+
+    def rows_of(mode):
+        rows = baseline.baseline_rows(env, mode, n_igss=6, n_seeds=2)
+        return [row for row in rows if row["strategy"].endswith("/any")]
+
+    assert len(rows_of(1)) == 4
+    assert rows_of(3) == rows_of(1)

@@ -67,3 +67,17 @@ def test_individual_scoring_with_base_rule_for_all_equals_mode_1(model, base):
     mode_1, _ = scoring.score_individual([("10", None), ("00", None)], env, seeds=["a"])
     evolved, _ = scoring.score_individual([("10", base), ("00", base)], env, seeds=["a"])
     assert mode_1 == evolved
+
+
+@pytest.mark.parametrize("model", ["DR", "IR"])
+@pytest.mark.parametrize("action", ["11", "00"])
+def test_unconditional_classes_are_simulated_with_the_base_rule(model, action):
+    # SPEC §14.3: a class whose action rule never reads the stored value is simulated with the
+    # base assessment rule, so what it logs (read counts included) is what mode 1 logs, whatever
+    # assessment rules its members carry and in whatever order they come.
+    env = environment(model)
+    _, as_in_mode_1 = scoring.score_aggregate([(action, None)], env, seeds=["a"], n_igss=6)
+    members = [(action, bits) for bits in ("0000", "1111", "0011")]
+    for strategies in (members, members[::-1]):
+        _, summary = scoring.score_aggregate(strategies, env, seeds=["a"], n_igss=6)
+        assert summary == as_in_mode_1
