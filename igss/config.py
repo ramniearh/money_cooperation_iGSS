@@ -57,7 +57,6 @@ BASE = {
 _IR_MODE_2 = {"MODE": [2], "MODEL": ["IR"], "SCORING": ["aggregate"], "SEEDS_PER_CELL": [10]}
 
 # What the sweeps of the broad exploratory sweep have in common (SPEC §14.7).
-# Proposed: not yet confirmed by an author.
 _BROAD = {"GENERATIONS": [200], "SEEDS_PER_CELL": [20]}
 _BROAD_SEARCH = {"GENERATIONS": [200], "SEEDS_PER_CELL": [10]}
 _ALL_MODELS_AND_MODES = {"MODE": [1, 2, 3], "MODEL": ["DR", "IR"]}
@@ -152,7 +151,7 @@ SWEEPS = {
         "GENERATIONS": [200],
         "SEEDS_PER_CELL": [20],
     },
-    # The broad exploratory sweep (SPEC §14.7): ten sweeps, each a full grid.
+    # The broad exploratory sweep (SPEC §14.7): eleven sweeps, each a full grid.
     "broad_individual": {
         **_ALL_MODELS_AND_MODES,
         "SCORING": ["individual"],
@@ -190,10 +189,15 @@ SWEEPS = {
         **_BROAD,
     },
     "broad_rounds": {
-        "MODE": [1, 2, 3],
-        "MODEL": ["DR"],
+        **_ALL_MODELS_AND_MODES,
         **_BOTH_SCORING_OPTIONS,
         "ROUNDS": [100, 400, 1600],
+        **_BROAD,
+    },
+    "broad_error": {
+        **_ALL_MODELS_AND_MODES,
+        **_BOTH_SCORING_OPTIONS,
+        "E_ACTION": [0.0, 0.05, 0.1, 0.2],
         **_BROAD,
     },
     "broad_episodes": {

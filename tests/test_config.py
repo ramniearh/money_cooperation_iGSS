@@ -94,10 +94,10 @@ def test_individual_look_matches_spec():
 
 
 def test_broad_sweep_matches_spec():
-    # SPEC §14.7: combinations and runs of each of the ten sweeps.
+    # SPEC §14.7: combinations and runs of each of the eleven sweeps.
     expected = {"broad_individual": (324, 6480), "broad_aggregate": (144, 2880),
                 "broad_norms_ir": (64, 1280), "broad_norms_dr": (32, 640),
-                "broad_rounds": (18, 360), "broad_episodes": (12, 240),
+                "broad_rounds": (36, 720), "broad_error": (48, 960), "broad_episodes": (12, 240),
                 "broad_parsimony": (36, 360), "broad_depth": (36, 360),
                 "broad_tournament": (36, 360), "broad_long": (12, 120)}
     assert {name for name in config.SWEEPS if name.startswith("broad_")} == set(expected)
@@ -108,7 +108,7 @@ def test_broad_sweep_matches_spec():
         assert len(config.expand_sweep(sweep_name)) == n_runs, sweep_name
         assert {c["GENERATIONS"] for c in cells} == ({500} if sweep_name == "broad_long" else {200})
         total += n_runs
-    assert total == 13080
+    assert total == 14400
 
     # The fixed assessment rules of the two norms sweeps are the named rules of SPEC §16.
     def fixed_rules(sweep_name, key):
@@ -117,6 +117,8 @@ def test_broad_sweep_matches_spec():
     assert fixed_rules("broad_norms_ir", "IR_ASSESSMENT_RULE") == {"1101", "1100", "1001", "1000"}
     assert fixed_rules("broad_norms_dr", "DR_ASSESSMENT_RULE") == {"1100", "1000"}
     assert {c["MODE"] for c in config.sweep_cells("broad_norms_ir")} == {1}
+    assert {c["MODEL"] for c in config.sweep_cells("broad_rounds")} == {"DR", "IR"}
+    assert {c["E_ACTION"] for c in config.sweep_cells("broad_error")} == {0.0, 0.05, 0.1, 0.2}
 
 
 @pytest.mark.parametrize("key, other_model", [("IR_ASSESSMENT_RULE", "DR"),
