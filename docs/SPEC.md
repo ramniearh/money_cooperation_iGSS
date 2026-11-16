@@ -4,7 +4,7 @@ This file is the single source of truth for rebuilding the iGSS code from scratc
 
 The code must match this file, and any mismatch is a bug. A change in behaviour is made here first, or in the same commit as the code, and is recorded in the change log (§18).
 
-- **Status:** v1.5.1, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
+- **Status:** v1.5.2, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
   - Modes 1, 2 and 3 are specified and built. The main focus for now is aggregate scoring; individual scoring is built and kept as a separate question.
   - No results appear here.
 - **Every choice is listed** in the decision register (§13). A choice not written here must not be made silently in code.
@@ -444,6 +444,7 @@ Strategies are grouped and coloured by their literature name (§16), each name w
 | F6. Final composition against a parameter | Both measures of final composition (below) for each strategy name, as one line per name, against the values of one varying parameter. | `runs.csv` and `composition.csv`, final generation. | One figure per varying parameter and scoring option; one column of panels per combination of the other varying parameters; one row of panels per measure. |
 | F7. Final composition over two parameters | One measure of final composition for each strategy name, as a grid of shaded cells over the first two varying parameters, with the value written in each cell. | As F6. | Drawn when at least two parameters vary. One figure per measure and scoring option; one row of panels per strategy name; one column per combination of the remaining varying parameters. |
 | F8. Most common strategy by generation | For each generation, the share of runs in which each strategy name is the most common, as stacked areas; ties are their own category. It shows what F2 would show had the runs stopped at that generation. | `generations.csv`: `most_common`, `most_common_name`. | One panel per combination of the varying parameters; one figure per scoring option. |
+| F9. Cooperation against a parameter | The cooperation rates of the final generation (`coop_rate`, `coop_igss`, `coop_igss_to_igss`, `coop_igss_to_c`, `coop_igss_to_d`) against the values of one varying parameter: a dot for each run and a line through the means over runs. | `runs.csv`. | One figure per varying parameter and scoring option; one row of panels per rate; one column per combination of the other varying parameters. A rate with no agents of that type (an empty cell) is left out. |
 
 There is no F4: it showed the runs in pairs, which were removed in v1.4.
 
@@ -454,12 +455,15 @@ There is no F4: it showed the runs in pairs, which were removed in v1.4.
 
 The two differ when a name is common without being the most common. F6 and F7 leave out names that are 0 in every panel of the figure.
 
+**Reading the cooperation rates (F9, T5).** `coop_rate` counts every donor, so with background agents present most of it is their fixed behaviour; the four `coop_igss…` rates are those of the iGSS agents. Under aggregate scoring each value is an average over the episodes of all P rules of the final generation, so it includes the rules that are not the most common.
+
 | Table | Shows | Data |
 | --- | --- | --- |
 | T1. Search against baseline | For each environment and scoring option: the recovery rate and the share of ties; and the strategies with the highest payoff in the baseline. Strategies listed together there cannot be told apart in that environment. | `baseline.csv` and `runs.csv`. |
 | T2. Expressions behind each strategy | For each strategy, the distinct simplified expressions in final generations and how many rules had each. | `rules.csv`, final generation. |
 | T3. Most common strategies | For each combination of parameters, which strategies (by bit strings, not only by name) ended most common, and in how many runs. | `runs.csv`. |
 | T4. Final composition by name | For each combination of parameters and each strategy name: the number of runs, and both measures of final composition (above). The numbers behind F6 and F7. | `runs.csv` and `composition.csv`, final generation. |
+| T5. Cooperation by combination | For each combination of parameters and each cooperation rate: the number of runs, and the mean, lowest and highest value over runs in the final generation. The numbers behind F9. | `runs.csv`. |
 
 **A caution on "unnamed".** In modes 2 and 3 many unnamed strategies behave exactly like a named one. For example, with stored values starting at 1, the assessment rules `1111`, `1110`, `1011` and `1010` never produce a 0 (§14.2), so `10` with any of them acts as unconditional cooperation. F1 and F2 group by name and so show these as "unnamed"; T1 and T3 and the baseline (F3) show which strategies are behaviourally the same.
 
@@ -625,6 +629,7 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | Exploratory sweeps for IR in mode 2: values of the parameters varied alone | R: 100, 400, 1600. Size penalty: 0, 0.01, 0.05. Depth limit: 3, 5, 17. Tournament size: 2, 3, 7. Proposed by the assistant, including the choice of tournament size, and confirmed by an author after the first run. | decided | other values; P; crossover and mutation probabilities; initial depths |
 | Varying G | one sweep with G = 200, read at earlier generations, because a shorter run is exactly the start of a longer one with the same seed (§14.5); a test checks this | assistant | separate runs for each G |
 | Second measure of final composition | "final share" (mean share of the final population) reported beside "ends most common" in F6, F7 and T4 (§10). It adds a reading of the same runs and changes nothing that is run. | assistant | majority over the last X generations |
+| Cooperation figure | F9 and T5 (§10): the five logged cooperation rates of the final generation, as means over runs with each run shown | assistant | cooperation by generation |
 | One sweep per parameter varied alone | a sweep in `config.py` is a full grid, so each parameter varied alone is a named sweep of its own, with its own output directory | assistant | a sweep type that varies one factor at a time |
 
 **Parameters for the first sweep.**
@@ -808,6 +813,7 @@ Newest first. Git history records every edit; this log records changes in meanin
 
 | Version | Date | Change |
 | --- | --- | --- |
+| v1.5.2 | 16 Nov 2026 | Figure F9 and table T5 added (§10): cooperation rates of the final generation against the varied parameters. |
 | v1.5.1 | 15 Nov 2026 | Sweep `ir2_env_e005` added (§14.5): the IR mode 2 environment grid with e_action = 0.05. The values of the parameters varied alone are now decided (§13). |
 | v1.5 | 15 Nov 2026 | Exploratory sweeps for IR in mode 2 added (§14.5): an environment grid, and R, G, size penalty, depth limit and tournament size each varied alone. Figures F6, F7 and F8 and table T4 added (§10), with a second measure of final composition, "final share", beside "ends most common". Figures now have a minimum width. |
 | v1.2 | 15 Nov 2026 | Written with the first build of mode 1, after an author's review of `docs/rebuild_plan.md`. Execution error decided: one-way, every donor, both models. Constants are two fixed terminals. N_I (iGSS agents per episode) separated from P for aggregate scoring; E (episodes per scoring) added. A size penalty, `PARSIMONY_TAX`, added as a search parameter, 0 in the base configuration. Every parameter can now be varied through named sweeps. Seed scheme, generation numbering, agent order and DEAP details written out. Output files and columns specified; a background type with no agents is logged as empty cells. Figures proposed. `config.py` and the commands described. New status values "assistant" and "review" in §13, and the header now lets the assistant make and record choices that cannot change which rules evolve. Legacy findings added to §17. |

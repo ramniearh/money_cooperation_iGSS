@@ -14,7 +14,9 @@
 #   F6  final composition against one varying parameter, one line per strategy name
 #   F7  final composition over two varying parameters, as shaded cells
 #   F8  most common strategy by generation, as a share of runs
+#   F9  cooperation rates of the final generation against one varying parameter
 #   T4  final composition by name: the numbers behind F6 and F7
+#   T5  cooperation by combination of parameters: the numbers behind F9
 #   T1  search against baseline (needs --baseline)
 #   T2  expressions behind each strategy in final generations
 #   T3  most common strategies in final generations, by bit strings
@@ -275,8 +277,21 @@ final_measures <- function(the_mode, the_model, the_scoring) {
                                 coalesce(total_share, 0) / runs))
 }
 
+# Share of interactions in which the donor cooperated, by who the donor and the partner are.
+rate_labels <- c(coop_rate = "every donor",
+                 coop_igss = "iGSS agents",
+                 coop_igss_to_igss = "iGSS agents,
+partner an iGSS agent",
+                 coop_igss_to_c = "iGSS agents,
+partner an unconditional
+cooperator",
+                 coop_igss_to_d = "iGSS agents,
+partner an unconditional
+defector")
+
 scoring_groups <- runs |> distinct(mode, model, scoring) |> arrange(mode, model, scoring)
 t4_parts <- list()
+t5_parts <- list()
 
 for (g in seq_len(nrow(scoring_groups))) {
   the_mode <- scoring_groups$mode[g]
@@ -383,9 +398,51 @@ for (g in seq_len(nrow(scoring_groups))) {
   save_figure(plot, paste0("F8_most_common_by_generation_", tag),
               width = max(min_width, 3 + 2.6 * min(4, n_cells)),
               height = 2.5 + 2.2 * ceiling(n_cells / 4))
+
+  # F9: cooperation rates of the final generation against each varying parameter.
+  # A rate with no agents of that type is an empty cell and drops out here.
+  rates <- runs |>
+    filter(mode == the_mode, model == the_model, scoring == the_scoring) |>
+    select(run_id, all_of(cell_columns), all_of(names(rate_labels))) |>
+    pivot_longer(all_of(names(rate_labels)), names_to = "rate", values_to = "value") |>
+    filter(!is.na(value)) |>
+    mutate(rate_label = factor(rate_labels[rate], levels = rate_labels))
+  t5_parts[[g]] <- rates |>
+    group_by(across(all_of(cell_columns)), rate) |>
+    summarise(runs = n(), mean = mean(value), lowest = min(value), highest = max(value),
+              .groups = "drop") |>
+    mutate(mode = the_mode, model = the_model, scoring = the_scoring, .before = 1)
+  for (parameter in cell_columns) {
+    data <- rates
+    data$panel <- label_of(data, setdiff(cell_columns, parameter),
+                           "all other parameters at their base values")
+    data$x <- factor(data[[parameter]], levels = sort(unique(data[[parameter]])))
+    means <- data |>
+      group_by(panel, rate_label, x) |>
+      summarise(value = mean(value), .groups = "drop")
+    plot <- ggplot(data, aes(x, value)) +
+      geom_point(colour = ink_secondary, alpha = 0.35, size = 1.4,
+                 position = position_jitter(width = 0.08, height = 0, seed = 1)) +
+      # A rate present at only one value of the parameter gets a point and no line.
+      geom_line(data = means |> group_by(panel, rate_label) |> filter(n() > 1),
+                aes(group = 1), colour = ink, linewidth = 0.8) +
+      geom_point(data = means, colour = ink, size = 2.6) +
+      facet_grid(rate_label ~ panel) +
+      scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+      labs(title = paste0("F9. Cooperation against ", parameter, ": ", heading),
+           subtitle = paste0("Share of interactions in which the donor cooperated, final generation. ",
+                             "Line: mean over runs; dots: runs."),
+           x = parameter, y = NULL, caption = caption) +
+      theme_igss() +
+      theme(strip.text.y = element_text(angle = 0, hjust = 0))
+    save_figure(plot, paste0("F9_cooperation_by_", parameter, "_", tag),
+                width = max(min_width, 5 + 2.2 * n_distinct(data$panel)),
+                height = 2.5 + 1.5 * n_distinct(data$rate))
+  }
 }
 
 save_table(bind_rows(t4_parts), "T4_final_by_name")
+save_table(bind_rows(t5_parts), "T5_cooperation")
 
 # --- F5: single runs, on request --------------------------------------------------------
 
