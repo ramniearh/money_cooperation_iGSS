@@ -348,6 +348,74 @@ def command_merge(args):
     print(f"Merged {len(args.parts)} parts of sweep {args.sweep!r} into {directory}")
 
 
+def sample_indices(n, k):
+    """k positions spread evenly over 0..n-1, first and last included (all of them if k >= n)."""
+    if k >= n:
+        return list(range(n))
+    if k == 1:
+        return [0]
+    return sorted({round(j * (n - 1) / (k - 1)) for j in range(k)})
+
+
+def _as_text(value):
+    return "" if value is None else str(value)  # as csv.DictWriter writes it
+
+
+def check_runs(directory, sample, workers=1):
+    """Rerun a sample of a sweep directory's runs and compare generations.csv (SPEC §14.8).
+
+    Every column except code_version is compared. Returns the run ids checked and a
+    list of mismatches, each a dict with run_id, generation, column, stored and rerun.
+    """
+    directory = pathlib.Path(directory)
+    stored_runs = list(_rows(directory / "runs.csv"))
+    sweep_name = stored_runs[0]["sweep"]
+    if sweep_name not in config.SWEEPS:
+        raise ValueError(f"{directory} is a run of {sweep_name!r}, which config.py does not define")
+    config_of = {cfg["RUN_ID"]: cfg for cfg in config.expand_sweep(sweep_name)}
+    chosen = [stored_runs[i]["run_id"] for i in sample_indices(len(stored_runs), sample)]
+    stored = {run_id: [] for run_id in chosen}
+    for row in _rows(directory / "generations.csv"):
+        if row["run_id"] in stored:
+            stored[row["run_id"]].append(row)
+
+    version = code_version()
+    jobs = [(config_of[run_id], version) for run_id in chosen]
+    if workers > 1:
+        with multiprocessing.Pool(workers) as pool:
+            results = list(pool.imap(run_rows, jobs))
+    else:
+        results = list(map(run_rows, jobs))
+
+    mismatches = []
+    compared = [c for c in GENERATION_COLUMNS if c != "code_version"]
+    for run_id, (_, rerun_rows, _, _) in zip(chosen, results):
+        if len(rerun_rows) != len(stored[run_id]):
+            mismatches.append({"run_id": run_id, "generation": "", "column": "number of generations",
+                               "stored": str(len(stored[run_id])), "rerun": str(len(rerun_rows))})
+            continue
+        for old, new in zip(stored[run_id], rerun_rows):
+            for column in compared:
+                if old[column] != _as_text(new[column]):
+                    mismatches.append({"run_id": run_id, "generation": old["generation"],
+                                       "column": column, "stored": old[column],
+                                       "rerun": _as_text(new[column])})
+    return chosen, mismatches
+
+
+def command_check(args):
+    checked, mismatches = check_runs(args.directory, args.sample, args.workers)
+    print(f"Reran {len(checked)} runs of {args.directory}.")
+    if not mismatches:
+        print("Every generations.csv value matches, apart from code_version.")
+        return
+    print(f"{len(mismatches)} values differ; the first ones:")
+    for m in mismatches[:20]:
+        print(f"  {m['run_id']} generation {m['generation']} {m['column']}: "
+              f"stored {m['stored']!r}, rerun {m['rerun']!r}")
+    raise SystemExit(1)
+
+
 def command_baseline(args):
     directory = new_output_directory(args.out, f"baseline-{args.sweep}")
     print(f"Baseline for sweep {args.sweep!r}, writing to {directory}")
@@ -380,6 +448,12 @@ def main(argv=None):
     merge.add_argument("sweep", choices=list(config.SWEEPS))
     merge.add_argument("parts", nargs="+", help="the part directories")
     merge.set_defaults(function=command_merge)
+
+    check = commands.add_parser("check", help="rerun a sample of a sweep's runs and compare them")
+    check.add_argument("directory", help="a sweep directory (a merged one, or a part)")
+    check.add_argument("--sample", type=int, default=20, help="how many runs to rerun")
+    check.add_argument("--workers", type=int, default=1, help="processes to run in parallel")
+    check.set_defaults(function=command_check)
 
     base = commands.add_parser("baseline", help="run the baseline for the environments of a sweep")
     base.add_argument("sweep", choices=list(config.SWEEPS))

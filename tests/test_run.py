@@ -155,6 +155,34 @@ def test_merge_refuses_mixed_code_versions(tmp_path):
     raise AssertionError("merge accepted parts with different code versions")
 
 
+def test_sample_of_runs_is_spread_evenly():
+    assert run.sample_indices(10, 4) == [0, 3, 6, 9]
+    assert run.sample_indices(3, 10) == [0, 1, 2]
+    assert run.sample_indices(10, 1) == [0]
+
+
+def test_check_finds_no_difference_in_fresh_output(tmp_path):
+    run.main(["--out", str(tmp_path), "sweep", "smoke"])
+    (directory,) = tmp_path.iterdir()
+    checked, mismatches = run.check_runs(directory, sample=6)
+    assert len(checked) == 6 and mismatches == []
+
+
+def test_check_reports_an_altered_value(tmp_path):
+    run.main(["--out", str(tmp_path), "sweep", "smoke"])
+    (directory,) = tmp_path.iterdir()
+    path = directory / "generations.csv"
+    rows = read(path)
+    rows[0]["payoff_igss"] = "999"                      # the first run is always in the sample
+    with open(path, "w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=run.GENERATION_COLUMNS)
+        writer.writeheader()
+        writer.writerows(rows)
+    checked, mismatches = run.check_runs(directory, sample=3)
+    assert [(m["run_id"], m["generation"], m["column"]) for m in mismatches] == [
+        (rows[0]["run_id"], rows[0]["generation"], "payoff_igss")]
+
+
 def test_dry_run_writes_nothing(tmp_path, capsys):
     run.main(["--out", str(tmp_path), "dry-run", "first"])
     assert list(tmp_path.iterdir()) == []
