@@ -4,7 +4,7 @@ This file is the single source of truth for rebuilding the iGSS code from scratc
 
 The code must match this file, and any mismatch is a bug. A change in behaviour is made here first, or in the same commit as the code, and is recorded in the change log (§18).
 
-- **Status:** v1.8, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
+- **Status:** v1.8.1, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
   - Modes 1, 2 and 3 are specified and built. The main focus for now is aggregate scoring; individual scoring is built and kept as a separate question.
   - No results appear here.
 - **Every choice is listed** in the decision register (§13). A choice not written here must not be made silently in code.
@@ -427,7 +427,7 @@ The result of a run is the composition of the population over time, plus the exp
 
 The numbers in this table are illustrative, not results.
 
-**Figures.** Every figure is drawn from the CSV files of one sweep and its baseline by one R script, `R/figures.R`. It writes PNG and CSV files into `<sweep directory>/figures/`, and computes nothing that is not in the CSV files. No image is produced during a run: the legacy code saved two images per run (a payoff chart and a drawing of the returned expression); here the per-run chart is F5, drawn on request, and expressions are listed in T2.
+**Figures.** Every figure is drawn from the CSV files of one sweep and its baseline by an R script. `R/figures.R` draws the figures and tables of the whole sweep (below); `R/cell_story.R` draws a compact set for one environment ("Figures for one environment", below). Both write into `<sweep directory>/figures/` and compute nothing that is not in the CSV files. No image is produced during a run: the legacy code saved two images per run (a payoff chart and a drawing of the returned expression); here the per-run chart is F5, drawn on request, and expressions are listed in T2.
 
 ```
 Rscript R/figures.R <sweep directory> [--baseline <baseline directory>] [--runs all | id1,id2,...]
@@ -464,6 +464,24 @@ The two differ when a name is common without being the most common. F6 and F7 le
 | T3. Most common strategies | For each combination of parameters, which strategies (by bit strings, not only by name) ended most common, and in how many runs. | `runs.csv`. |
 | T4. Final composition by name | For each combination of parameters and each strategy name: the number of runs, and both measures of final composition (above). The numbers behind F6 and F7. | `runs.csv` and `composition.csv`, final generation. |
 | T5. Cooperation by combination | For each combination of parameters and each cooperation rate: the number of runs, and the mean, lowest and highest value over runs in the final generation. The numbers behind F9. | `runs.csv`. |
+
+**Figures for one environment.** For showing one environment to readers outside the build, `R/cell_story.R` draws five compact figures. Each is a grid of small panels, with one row per model and one column per mode, all for the one environment named on the command line:
+
+```
+Rscript R/cell_story.R <sweep directory> --baseline <baseline directory> --where n_c=32,n_d=32,b=3,e_action=0.05
+```
+
+The selected runs must share one scoring option. The figures are written to `<sweep directory>/figures/cell_<environment>/`. Names and colours come from `labels.csv`, with the colour keys of `R/figures.R`; one legend serves both models, each colour listing the name it has in each model.
+
+| Figure | Shows | Data |
+| --- | --- | --- |
+| C1. Composition over generations | For each generation, the share of the P rules with each strategy name, averaged over runs, as stacked areas. F1 for one environment. | `composition.csv` |
+| C2. Final population of every run | One stacked bar per run: the share of the P rules with each name in the final generation. Runs are sorted by their most common name. | `composition.csv`, `runs.csv` |
+| C3. Payoff by generation | `payoff_igss` by generation, one line per run, coloured by the run's final most common name (or a tie). Dashed lines: the mean baseline payoff of every named strategy. | `generations.csv`, `runs.csv`, `baseline.csv` |
+| C4. Search against baseline | The mean baseline payoff of each strategy, with its range over seeds, and the number of runs in which it was alone the most common in the final generation. Listed: the six best strategies in the baseline and any strategy a run ended on. | `baseline.csv`, `runs.csv` |
+| C5. Cooperation by type of partner | `coop_igss_to_igss`, `coop_igss_to_c` and `coop_igss_to_d` in the final generation: a dot for each run, coloured by its final most common name, and the mean over runs. | `runs.csv` |
+
+The first use was the environment N_C = N_D = 32, b = 3, e_action = 0.05 of `broad_aggregate`.
 
 **A caution on "unnamed".** In modes 2 and 3 many unnamed strategies behave exactly like a named one. For example, with stored values starting at 1, the assessment rules `1111`, `1110`, `1011` and `1010` never produce a 0 (§14.2), so `10` with any of them acts as unconditional cooperation. F1 and F2 group by name and so show these as "unnamed"; T1 and T3 and the baseline (F3) show which strategies are behaviourally the same.
 
@@ -596,7 +614,8 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | Recovery criterion | one strategy alone is the most common in the final generation, and §16 names it as a reciprocity strategy of the model (in mode 1: `10`); ties reported separately | decided | majority over the last X generations; its share of the population |
 | Repository layout | as in §11 | proposed | — |
 | Tooling | Python 3.14; DEAP 1.4.3, SymPy 1.14.0 and pytest 9.2.0 pinned in `requirements.txt`. DEAP's operators define parts of the model, so its version is part of this specification. | assistant | — |
-| Figures | as in §10: one R script, `R/figures.R`; no images during runs; no drawing of expression trees | assistant | drawing expression trees, as the legacy code did |
+| Figures | as in §10: `R/figures.R` for a whole sweep and `R/cell_story.R` for one environment; no images during runs; no drawing of expression trees yet (§15) | assistant | drawing expression trees, as the legacy code did (§15) |
+| Figures for one environment | C1 to C5 (§10): one row per model, one column per mode; C4 lists the six best strategies in the baseline and any strategy a run ended on; C3 marks only the named strategies of the baseline. Asked for by an author as a way of presenting results to co-authors; the choice of figures is the assistant's. | assistant | other figures; more strategies in C4 |
 | Population sizes | N_I = N_C = N_D = 32 in the base configuration, with 0 cooperators or 0 defectors as further environments. Equal groups replace the 32/10/10 of v1.2, which had no motivation. | decided | 10/10/10, as the legacy code had, for speed; analytical results for mode 1 |
 | Literature names in output | `most_common_name` and `labels.csv`, derived from §16; a strategy §16 does not name is "unnamed" | assistant | — |
 | Mode | `MODE` (1, 2 or 3) has no base value, like `MODEL` and `SCORING` | assistant | — |
@@ -837,6 +856,10 @@ That is 14,400 runs.
 - **Junk inputs:** random, uninformative inputs, to test whether the search learns to ignore them.
 - **Combined DR+IR model:** both informative inputs available to one action rule. Known risk: in the legacy combined runs, private records and public standings carried nearly the same information.
 - **Continuous episodes:** one episode per run, with a few agents' rules replaced each round, as an alternative to generations.
+- **Fossil record and expression trees.** Asked for by an author, for a future iteration.
+  - **What the legacy code had.** For generation 1 and every tenth generation, the text of the generation's best expression (the "fossil record"; the legacy README proposed renaming it "evolutionary trajectory"), with about five of them printed in a report at the end of each run. It also had a drawing of the returned expression as a tree (`<Run_ID>_Tree.png`, two trees in mode 3; `docs/legacy_inventory.md`).
+  - **What exists now.** `rules.csv` holds every rule's expression, score and selection score for generation 1, every `RULES_LOG_EVERY`-th generation and generation G (§9), so the best rule of each logged generation can already be read from it. Nothing presents it. The legacy code also copied the best rule found so far back into the population (elitism), so its best rule of a generation was usually the best found so far. Here there is no elitism (§13), so "best of the generation" and "best found so far" differ, and the latter would need its own record.
+  - **To recover.** A table, per run, of the best rule of each logged generation (and, if wanted, the best found so far), with expression, simplified form, strategy and score; and drawings of the expression trees, at least for single runs (F5, `--runs`). Which of these, for which runs, and in which language they are drawn are left to be agreed.
 - **Other extensions:**
   - assessment error;
   - Pavlov / win-stay-lose-shift, which needs the agent's own last action;
@@ -891,6 +914,7 @@ Newest first. Git history records every edit; this log records changes in meanin
 
 | Version | Date | Change |
 | --- | --- | --- |
+| v1.8.1 | 17 Nov 2026 | Figures for one environment added (§10): `R/cell_story.R` draws C1 to C5, a compact grid of both models and all modes for one environment, for presenting results to co-authors. The fossil record and expression-tree drawings of the legacy code noted as a future addition (§15). |
 | v1.8 | 16 Nov 2026 | Corrections after a review. The classes `11/any` and `00/any` are simulated with the base assessment rule under aggregate scoring and in the baseline (§14.3), so their logged read counts no longer depend on the order of the population; scores are unchanged. A sweep that varies one model's assessment rule while running the other model is refused (§13). `composition.csv` and `rules.csv` now record the scoring option in every row (§10). The broad exploratory sweep (§14.7) is confirmed, with R varied in both models and a sweep of larger execution errors added as a proposal. |
 | v1.7 | 16 Nov 2026 | A broad exploratory sweep drafted as a proposal (§14.7): ten named sweeps over both models, all modes and both scoring options, including mode 1 with each named assessment rule as the fixed rule. Figures treat the fixed assessment rule as a parameter that can vary. |
 | v1.6 | 16 Nov 2026 | A first look at individual scoring added (§14.6): the sweep `individual_look`, and points to keep in mind when reading individual scoring in modes 2 and 3. |
