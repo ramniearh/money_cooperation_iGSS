@@ -74,6 +74,42 @@ def test_baseline_command_writes_its_file(tmp_path):
     assert len(rows) == 4 * 2 * (4 + 16 + 34)
 
 
+def test_parts_divide_the_runs_of_a_sweep():
+    # SPEC §14.8: run i belongs to part k of n when i mod n = k - 1.
+    runs = config.expand_sweep("smoke")
+    parts = [run.select_part(runs, k, 5) for k in range(1, 6)]
+    ids = [cfg["RUN_ID"] for part in parts for cfg in part]
+    assert sorted(ids) == sorted(cfg["RUN_ID"] for cfg in runs)
+    assert len(ids) == len(set(ids))
+    assert [cfg["RUN_ID"] for cfg in parts[1]] == [cfg["RUN_ID"] for cfg in runs[1::5]]
+
+
+def test_part_argument_is_checked():
+    assert run.parse_part("3/40") == (3, 40)
+    for text in ("0/4", "5/4", "3", "a/b", "1/0"):
+        try:
+            run.parse_part(text)
+        except ValueError:
+            continue
+        raise AssertionError(text)
+
+
+def test_a_part_writes_the_same_rows_as_the_full_sweep(tmp_path):
+    full_root, part_root = tmp_path / "full", tmp_path / "part"
+    run.main(["--out", str(full_root), "sweep", "smoke"])
+    run.main(["--out", str(part_root), "sweep", "smoke", "--part", "2/3"])
+    (full,) = full_root.iterdir()
+    (part,) = part_root.iterdir()
+    assert part.name.startswith("smoke-part2of3-")
+    (info,) = read(part / "part.csv")
+    assert (info["sweep"], info["part"], info["parts"]) == ("smoke", "2", "3")
+    part_ids = {cfg["RUN_ID"] for cfg in run.select_part(config.expand_sweep("smoke"), 2, 3)}
+    assert info["runs"] == str(len(part_ids))
+    for name in ("runs.csv", "generations.csv", "composition.csv", "rules.csv"):
+        expected = [row for row in read(full / name) if row["run_id"] in part_ids]
+        assert read(part / name) == expected, name
+
+
 def test_dry_run_writes_nothing(tmp_path, capsys):
     run.main(["--out", str(tmp_path), "dry-run", "first"])
     assert list(tmp_path.iterdir()) == []

@@ -239,11 +239,47 @@ def command_dry_run(args):
     print("Nothing was run.")
 
 
+PART_COLUMNS = ("sweep", "part", "parts", "runs", "code_version", "started", "finished")
+
+
+def parse_part(text):
+    """'k/n' -> (k, n), with 1 <= k <= n (SPEC §14.8)."""
+    try:
+        k, n = (int(value) for value in text.split("/"))
+    except ValueError:
+        raise ValueError(f"a part is written k/n, for example 3/40, not {text!r}") from None
+    if not 1 <= k <= n:
+        raise ValueError(f"part {text!r}: k must be between 1 and n")
+    return k, n
+
+
+def select_part(runs, k, n):
+    """The runs of part k of n: run i (from 0) belongs to it when i mod n = k - 1 (SPEC §14.8)."""
+    return [cfg for i, cfg in enumerate(runs) if i % n == k - 1]
+
+
+def _now():
+    return datetime.datetime.now().isoformat(timespec="seconds")
+
+
 def command_sweep(args):
     runs = config.expand_sweep(args.sweep)
-    directory = new_output_directory(args.out, args.sweep)
-    print(f"Sweep {args.sweep!r}: {len(runs)} runs, writing to {directory}")
+    if args.part is None:
+        directory = new_output_directory(args.out, args.sweep)
+        print(f"Sweep {args.sweep!r}: {len(runs)} runs, writing to {directory}")
+        write_runs(runs, directory, args.workers)
+        return
+    k, n = parse_part(args.part)
+    runs = select_part(runs, k, n)
+    directory = new_output_directory(args.out, f"{args.sweep}-part{k}of{n}")
+    print(f"Sweep {args.sweep!r}, part {k} of {n}: {len(runs)} runs, writing to {directory}")
+    started = _now()
     write_runs(runs, directory, args.workers)
+    # Written last, so a part directory without part.csv did not finish.
+    with _open(directory, "part.csv") as file:
+        _writer(file, PART_COLUMNS).writerow({
+            "sweep": args.sweep, "part": k, "parts": n, "runs": len(runs),
+            "code_version": code_version(), "started": started, "finished": _now()})
 
 
 def command_baseline(args):
@@ -270,6 +306,8 @@ def main(argv=None):
     sweep = commands.add_parser("sweep", help="run a sweep")
     sweep.add_argument("sweep", choices=list(config.SWEEPS))
     sweep.add_argument("--workers", type=int, default=1, help="processes to run in parallel")
+    sweep.add_argument("--part", default=None, metavar="K/N",
+                       help="run only part K of N of the sweep, into a directory of its own")
     sweep.set_defaults(function=command_sweep)
 
     base = commands.add_parser("baseline", help="run the baseline for the environments of a sweep")
