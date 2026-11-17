@@ -10,8 +10,10 @@ appends to an existing file.
 """
 
 import argparse
+import contextlib
 import csv
 import datetime
+import heapq
 import multiprocessing
 import pathlib
 import subprocess
@@ -282,6 +284,70 @@ def command_sweep(args):
             "code_version": code_version(), "started": started, "finished": _now()})
 
 
+PER_RUN_FILES = ("runs.csv", "generations.csv", "composition.csv", "rules.csv")
+
+
+def _rows(path):
+    with open(path, newline="", encoding="utf-8") as file:
+        yield from csv.DictReader(file)
+
+
+def merge_parts(sweep_name, part_dirs, out_root):
+    """Join the part directories of one sweep into one directory (SPEC §14.8).
+
+    Stops, writing nothing, if a run is missing, repeated or not of this sweep, or if
+    the parts differ in code_version or labels.csv. Rows are written in the order of
+    the full sweep, so the result is the same as a sweep run in one piece.
+    """
+    part_dirs = [pathlib.Path(d) for d in part_dirs]
+    order = {cfg["RUN_ID"]: i for i, cfg in enumerate(config.expand_sweep(sweep_name))}
+    found, versions = {}, set()
+    for directory in part_dirs:
+        for row in _rows(directory / "runs.csv"):
+            run_id = row["run_id"]
+            if run_id not in order:
+                raise ValueError(f"{directory} holds run {run_id}, which is not a run of {sweep_name!r}")
+            if run_id in found:
+                raise ValueError(f"run {run_id} is in both {found[run_id]} and {directory}")
+            found[run_id] = directory
+            versions.add(row["code_version"])
+    missing = [run_id for run_id in order if run_id not in found]
+    if missing:
+        raise ValueError(f"{len(missing)} runs of {sweep_name!r} are in no part, for example {missing[0]}")
+    if len(versions) != 1:
+        raise ValueError(f"the parts were run with different code versions: {sorted(versions)}")
+    if len({(d / "labels.csv").read_bytes() for d in part_dirs}) != 1:
+        raise ValueError("the parts' labels.csv files differ")
+    for name in PER_RUN_FILES:
+        headers = set()
+        for d in part_dirs:
+            with open(d / name, newline="", encoding="utf-8") as file:
+                headers.add(tuple(next(csv.reader(file))))
+        if len(headers) != 1:
+            raise ValueError(f"the parts' {name} files have different columns")
+
+    directory = new_output_directory(out_root, sweep_name)
+    (directory / "labels.csv").write_bytes((part_dirs[0] / "labels.csv").read_bytes())
+    for name in PER_RUN_FILES:
+        with contextlib.ExitStack() as stack:
+            readers = [csv.reader(stack.enter_context(open(d / name, newline="", encoding="utf-8")))
+                       for d in part_dirs]
+            headers = [next(reader) for reader in readers]  # all equal, checked above
+            column = headers[0].index("run_id")
+            # Each part lists its runs in the order of the full sweep, so a merge keeps that order.
+            rows = heapq.merge(*readers, key=lambda row: order[row[column]])
+            with _open(directory, name) as file:
+                writer = csv.writer(file)
+                writer.writerow(headers[0])
+                writer.writerows(rows)
+    return directory
+
+
+def command_merge(args):
+    directory = merge_parts(args.sweep, args.parts, args.out)
+    print(f"Merged {len(args.parts)} parts of sweep {args.sweep!r} into {directory}")
+
+
 def command_baseline(args):
     directory = new_output_directory(args.out, f"baseline-{args.sweep}")
     print(f"Baseline for sweep {args.sweep!r}, writing to {directory}")
@@ -309,6 +375,11 @@ def main(argv=None):
     sweep.add_argument("--part", default=None, metavar="K/N",
                        help="run only part K of N of the sweep, into a directory of its own")
     sweep.set_defaults(function=command_sweep)
+
+    merge = commands.add_parser("merge", help="join the part directories of one sweep")
+    merge.add_argument("sweep", choices=list(config.SWEEPS))
+    merge.add_argument("parts", nargs="+", help="the part directories")
+    merge.set_defaults(function=command_merge)
 
     base = commands.add_parser("baseline", help="run the baseline for the environments of a sweep")
     base.add_argument("sweep", choices=list(config.SWEEPS))

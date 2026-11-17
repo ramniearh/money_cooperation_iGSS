@@ -110,6 +110,51 @@ def test_a_part_writes_the_same_rows_as_the_full_sweep(tmp_path):
         assert read(part / name) == expected, name
 
 
+PER_RUN_FILES = ("runs.csv", "generations.csv", "composition.csv", "rules.csv", "labels.csv")
+
+
+def run_parts(root, n):
+    for k in range(1, n + 1):
+        run.main(["--out", str(root), "sweep", "smoke", "--part", f"{k}/{n}"])
+    return sorted(root.iterdir())
+
+
+def test_merged_parts_are_the_full_sweep(tmp_path):
+    # SPEC §14.8: the merged directory is the same as that of a sweep run in one piece.
+    run.main(["--out", str(tmp_path / "full"), "sweep", "smoke"])
+    (full,) = (tmp_path / "full").iterdir()
+    parts = run_parts(tmp_path / "parts", 3)
+    run.main(["--out", str(tmp_path / "merged"), "merge", "smoke", *map(str, reversed(parts))])
+    (merged,) = (tmp_path / "merged").iterdir()
+    assert merged.name.startswith("smoke-")
+    for name in PER_RUN_FILES:
+        assert (merged / name).read_bytes() == (full / name).read_bytes(), name
+
+
+def test_merge_refuses_a_missing_or_repeated_run(tmp_path):
+    parts = run_parts(tmp_path / "parts", 3)
+    for chosen in (parts[:2], parts + parts[:1]):
+        try:
+            run.merge_parts("smoke", chosen, tmp_path / "merged")
+        except ValueError:
+            continue
+        raise AssertionError("merge accepted an incomplete or repeated set of parts")
+    assert not (tmp_path / "merged").exists()
+
+
+def test_merge_refuses_mixed_code_versions(tmp_path):
+    parts = run_parts(tmp_path / "parts", 2)
+    path = parts[0] / "runs.csv"
+    text = path.read_text(encoding="utf-8")
+    version = read(path)[0]["code_version"]
+    path.write_text(text.replace(version, "0000000", 1), encoding="utf-8")
+    try:
+        run.merge_parts("smoke", parts, tmp_path / "merged")
+    except ValueError:
+        return
+    raise AssertionError("merge accepted parts with different code versions")
+
+
 def test_dry_run_writes_nothing(tmp_path, capsys):
     run.main(["--out", str(tmp_path), "dry-run", "first"])
     assert list(tmp_path.iterdir()) == []
