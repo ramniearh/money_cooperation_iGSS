@@ -21,9 +21,9 @@ BASE = {
     "N_D": 32,                 # unconditional defectors
 
     # --- Game ---------------------------------------------------------------
-    "B": 5,                    # benefit to the partner
+    "B": 3,                    # benefit to the partner (5 before SPEC v1.10)
     "C": 1,                    # cost to the donor (1 by convention)
-    "E_ACTION": 0.0,           # probability that an intended cooperation fails
+    "E_ACTION": 0.05,          # probability that an intended cooperation fails (0 before SPEC v1.10)
     "ROUNDS": 400,             # R: rounds per episode (about 4 meetings per ordered pair when N = 96)
     # The base assessment rule of each model, by the name of its predicate in rules.py.
     # Mode 1: the fixed rule. Modes 2 and 3: the rule background agents apply under
@@ -230,6 +230,15 @@ SWEEPS = {
         "RULES_LOG_EVERY": [2],
     },
 }
+
+# The sweeps above were defined and run while the base had b = 5 and e_action = 0
+# (SPEC §14.8). They keep those values where they do not set b or e_action
+# themselves, so that they still describe what was run. The values are added
+# after the sweep's own factors: a factor with one value changes neither the
+# order of the combinations nor their run ids.
+_EARLIER_BASE = {"B": [5], "E_ACTION": [0.0]}
+for _name, _factors in SWEEPS.items():
+    SWEEPS[_name] = {**_factors, **{k: v for k, v in _EARLIER_BASE.items() if k not in _factors}}
 
 # Overrides used by `python -m igss.run quick`: one short run of the base configuration.
 QUICK = {"GENERATIONS": 10, "SEEDS_PER_CELL": 1}

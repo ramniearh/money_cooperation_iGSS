@@ -30,6 +30,37 @@ def test_base_has_no_model_and_no_scoring():
     assert "MODEL" not in config.BASE
 
 
+def test_base_environment_matches_spec():
+    # SPEC §13 "Base values of swept parameters" (v1.10).
+    assert (config.BASE["N_C"], config.BASE["N_D"]) == (32, 32)
+    assert (config.BASE["B"], config.BASE["ROUNDS"], config.BASE["E_ACTION"]) == (3, 400, 0.05)
+
+
+EARLIER_SWEEPS = ["base", "first", "rounds", "parsimony", "mode2", "mode3",
+                  "ir2_env", "ir2_env_e005", "ir2_rounds", "ir2_generations", "ir2_parsimony",
+                  "ir2_depth", "ir2_tournament", "individual_look",
+                  "broad_individual", "broad_aggregate", "broad_norms_ir", "broad_norms_dr",
+                  "broad_rounds", "broad_error", "broad_episodes", "broad_parsimony",
+                  "broad_depth", "broad_tournament", "broad_long", "smoke"]
+
+
+SETS_ITS_OWN_B = {"first", "mode2", "mode3", "ir2_env", "ir2_env_e005", "individual_look",
+                  "broad_individual", "broad_aggregate", "broad_norms_ir", "broad_norms_dr"}
+SETS_ITS_OWN_ERROR = {"first", "mode2", "mode3", "ir2_env_e005", "broad_individual",
+                      "broad_aggregate", "broad_norms_ir", "broad_norms_dr", "broad_error"}
+
+
+@pytest.mark.parametrize("sweep_name", EARLIER_SWEEPS)
+def test_earlier_sweeps_keep_the_earlier_base(sweep_name):
+    # SPEC §14.8: sweeps defined before v1.10 keep b = 5 and e_action = 0 where they do not set
+    # them, so they still describe what was run.
+    cells = config.sweep_cells(sweep_name)
+    if sweep_name not in SETS_ITS_OWN_B:
+        assert {c["B"] for c in cells} == {5}
+    if sweep_name not in SETS_ITS_OWN_ERROR:
+        assert {c["E_ACTION"] for c in cells} == {0.0}
+
+
 def test_every_parameter_is_read_by_the_code():
     # A parameter that nothing reads is a bug (CLAUDE.md rule 7).
     other_code = "".join(path.read_text(encoding="utf-8")
