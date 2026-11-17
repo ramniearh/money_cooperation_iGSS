@@ -51,6 +51,9 @@ This repository rebuilds the iGSS models of direct reciprocity (DR) and indirect
 - Tests: `python -m pytest`
 - One quick run: `python -m igss.run quick --mode 1 --model DR --scoring aggregate`
 - List a sweep without running it: `python -m igss.run dry-run first`
+- Run one part of a sweep (for a cluster): `python -m igss.run sweep main --part 3/40 --workers 8`
+- Merge the parts of a sweep: `python -m igss.run merge main <part directories>`
+- Rerun and compare a sample of a sweep's runs: `python -m igss.run check <sweep directory> --sample 20`
 - Figures: `Rscript R/figures.R <sweep directory> --baseline <baseline directory>`
 
 ## Gotchas
