@@ -4,7 +4,7 @@ This file is the single source of truth for rebuilding the iGSS code from scratc
 
 The code must match this file, and any mismatch is a bug. A change in behaviour is made here first, or in the same commit as the code, and is recorded in the change log (§18).
 
-- **Status:** v1.8.3, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
+- **Status:** v1.9, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
   - Modes 1, 2 and 3 are specified and built. The main focus for now is aggregate scoring; individual scoring is built and kept as a separate question.
   - No results appear here.
 - **Every choice is listed** in the decision register (§13). A choice not written here must not be made silently in code.
@@ -624,6 +624,9 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | Repository layout | as in §11 | proposed | — |
 | Tooling | Python 3.14; DEAP 1.4.3, SymPy 1.14.0 and pytest 9.2.0 pinned in `requirements.txt`. DEAP's operators define parts of the model, so its version is part of this specification. | assistant | — |
 | Figures | as in §10: `R/figures.R` for a whole sweep, `R/cell_story.R` for one environment and `R/factor_story.R` for one parameter; no images during runs; no drawing of expression trees yet (§15) | assistant | drawing expression trees, as the legacy code did (§15) |
+| Main batch | §14.8: aggregate scoring only; grid A over model, mode, N_C, N_D, b {2, 3, 5, 10}, R {100, 400, 1600}, e_action {0, 0.05, 0.1, 0.2}, G = 500, 100 seeds; grid B over tournament size, depth limit and size penalty at the reference and base environments, 20 seeds; a one-seed pilot first; sweeps run in parts on a cluster. Outline agreed by an author; values drafted by the assistant. | proposed | G of 200 or 300; other values; individual scoring in the same batch |
+| Fixed non-base assessment rules in the main batch | not run (§14.8); under aggregate scoring the baseline measures what mode 1 rewards for each fixed rule | proposed | keep `broad_norms_ir` and `broad_norms_dr` as part of the batch, or run them under individual scoring later |
+| Episodes per score in the main batch | E = 1 (§14.8) | proposed | E above 1 |
 | Figures of one parameter | D-figures (§10): the measure "ends most common", one bar per value; several parameters may share a figure. Asked for by an author to show the main effects of the broad sweeps beside the reference environment; the form is the assistant's. | assistant | "final share" as the measure; cooperation rates |
 | Figures for one environment | C1 to C5 (§10): one row per model, one column per mode; C4 lists the six best strategies in the baseline and any strategy a run ended on; C3 marks only the named strategies of the baseline. Asked for by an author as a way of presenting results to co-authors; the choice of figures is the assistant's. | assistant | other figures; more strategies in C4 |
 | Population sizes | N_I = N_C = N_D = 32 in the base configuration, with 0 cooperators or 0 defectors as further environments. Equal groups replace the 32/10/10 of v1.2, which had no motivation. | decided | 10/10/10, as the legacy code had, for speed; analytical results for mode 1 |
@@ -859,6 +862,51 @@ That is 14,400 runs.
 - assessment error (§14.4, point 3);
 - private standings, where agents can disagree about a standing.
 
+All eleven sweeps and the five baselines were run on 16–17 November 2026, at code `1e89b96` (`broad_individual`, `broad_aggregate`) and `cc389fd` (the rest), whose model code is the same.
+
+### 14.8 The main batch (proposal)
+
+*Proposal, agreed in outline with an author on 17 November 2026; the values below are proposed and open to change.* After the broad exploratory sweep (§14.7), the next runs are one large batch, run on a university computing cluster with 100 seeds per combination. The aim is a single database of runs, made with one code version and one seed scheme, in which every factor is varied around every environment, to be sliced afterwards. It replaces the many specific sweeps of §14.7.
+
+**What changes from §14.7.**
+
+- **Aggregate scoring only.** Individual scoring stays a separate question (§14.6, §13 "Main focus"), to be run later with the same seeds.
+- **No sweeps with a fixed non-base assessment rule** (`broad_norms_ir`, `broad_norms_dr`). Their definitions stay in `config.py`. Under aggregate scoring, a mode 1 rule is scored among copies of itself, which is what the baseline (§8) measures for each fixed rule.
+- **E = 1.** Episodes per score average away the noise of a score without changing the game; under aggregate scoring a score already rests on N_I × R decisions (§7).
+- **Every factor around every environment.** In §14.7, R, the larger errors and the search parameters were varied only around the base environment (b = 5, e_action = 0). Here the game factors form one full grid.
+
+**Grid A: environment and game** (sweep `main`):
+
+| Factor | Values |
+| --- | --- |
+| model × mode | DR, IR × 1, 2, 3 |
+| N_C | 0, 32 |
+| N_D | 0, 32 |
+| b | 2, 3, 5, 10 |
+| R | 100, 400, 1600 |
+| e_action | 0, 0.05, 0.1, 0.2 |
+| G | 500 |
+| seeds | 100 |
+
+That is 1,152 combinations and 115,200 runs. G is 500 because the composition at generations 200 and 500 differed in IR modes 2 and 3 of `broad_long` (D4, §10).
+
+**Grid B: search parameters** (sweeps `main_search_reference` and `main_search_base`): tournament size {2, 3, 7} × depth limit {3, 5, 17} × size penalty {0, 0.01, 0.05}, in two environments: the reference environment (N_C = N_D = 32, b = 3, e_action = 0.05) and the base environment (N_C = N_D = 32, b = 5, e_action = 0); both models and modes, R = 400, G = 500, 20 seeds. That is 2 × 162 combinations and 6,480 runs. The search parameters belong to the search rather than to the model, so they are checked at two environments rather than crossed with grid A.
+
+**Baseline** for every environment of grid A: 1,152 environments with mode, `BASELINE_SEEDS` = 50 (open: 100).
+
+**Pilot.** Before the cluster run, grids A and B with one seed per combination (1,476 runs) and the baseline are run on one machine, to check that every combination runs and to measure running time and output size per combination.
+
+**Size, roughly.** On the laptop used for §14.7, an aggregate run in the base environment (N = 96, R = 400, G = 200) took about 1 to 2 core-minutes. Scaling by N, R and G gives about 3 to 9 core-minutes per run of grid A, so roughly 6,000 to 17,000 core-hours for grid A and a few hundred for grid B; the pilot is to replace these figures. At the current logging (`RULES_LOG_EVERY` = 10), the output of grid A would be about 100 GB; with `RULES_LOG_EVERY` = 50, about 35 GB.
+
+**Code needed first** (each its own change, with tests):
+
+1. Running a sweep in parts: `sweep <name> --part k/n` runs every n-th run of the sweep, starting at the k-th, into a directory of its own. Run seeds depend only on the repetition (§9), so parts are independent and a lost part can be run again.
+2. Merging parts: a command that joins the part directories of one sweep, checks that every run appears exactly once and that every row has the same `code_version`, and writes the usual files.
+3. The baseline in parts or with several workers.
+4. A reproducibility check: rerun a sample of runs by `run_id` on another machine and compare their `generations.csv` rows, as done across the sweeps of §14.7.
+
+**Open choices:** G (500 or another value); the values of b, R and e_action; the depth limits and penalties of grid B; `BASELINE_SEEDS`; `RULES_LOG_EVERY`; whether background sizes other than 0 and 32 are added.
+
 ## 15. Later rungs
 
 - **Modes 2 and 3**, once the open issues in §14.4 are settled.
@@ -933,6 +981,7 @@ Newest first. Git history records every edit; this log records changes in meanin
 
 | Version | Date | Change |
 | --- | --- | --- |
+| v1.9 | 17 Nov 2026 | The main batch proposed (§14.8): one large batch under aggregate scoring, a full grid of environment and game factors with 100 seeds, a smaller grid of search parameters at two environments, a one-seed pilot, and the code needed to run sweeps in parts on a cluster. §14.7 records when its sweeps were run. |
 | v1.8.3 | 17 Nov 2026 | Figures of one parameter added (§10): `R/factor_story.R` draws the share of runs ending on each strategy name against one or more parameters, in the grid of models and modes. |
 | v1.8.2 | 17 Nov 2026 | Two notes for later added to §15, neither planned yet: a combined DR+IR model, with both stored values read by one action rule, and a "meta-ledger" after Schmid et al. (2021); and a version of the model after Frean and Marsland (2023) on money and score-mediated mutual consent. |
 | v1.8.1 | 17 Nov 2026 | Figures for one environment added (§10): `R/cell_story.R` draws C1 to C5, a compact grid of both models and all modes for one environment, for presenting results to co-authors. The fossil record and expression-tree drawings of the legacy code noted as a future addition (§15). |
