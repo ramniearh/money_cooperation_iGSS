@@ -240,6 +240,37 @@ _EARLIER_BASE = {"B": [5], "E_ACTION": [0.0]}
 for _name, _factors in SWEEPS.items():
     SWEEPS[_name] = {**_factors, **{k: v for k, v in _EARLIER_BASE.items() if k not in _factors}}
 
+# The main batch (SPEC §14.8), under aggregate scoring only. Grid A crosses the
+# environment and game factors; grid B crosses the search parameters at the base
+# environment and holds the long runs. Each pilot is its grid with one seed, so its
+# runs are repetition 0 of the main runs.
+_MAIN_GRID_A = {
+    **_ALL_MODELS_AND_MODES,
+    "SCORING": ["aggregate"],
+    "N_C": [0, 32],
+    "N_D": [0, 32],
+    "B": [2, 3, 5, 10],
+    "ROUNDS": [100, 400, 1600],
+    "E_ACTION": [0.0, 0.05, 0.1, 0.2],
+    "GENERATIONS": [200],
+    "RULES_LOG_EVERY": [50],
+}
+_MAIN_GRID_B = {
+    **_ALL_MODELS_AND_MODES,
+    "SCORING": ["aggregate"],
+    "TOURNAMENT_SIZE": [2, 3, 7],
+    "DEPTH_LIMIT": [3, 5, 17],
+    "PARSIMONY_TAX": [0.0, 0.01, 0.05],
+    "GENERATIONS": [500],
+    "RULES_LOG_EVERY": [10],
+}
+SWEEPS.update({
+    "main": {**_MAIN_GRID_A, "SEEDS_PER_CELL": [100]},
+    "main_pilot": {**_MAIN_GRID_A, "SEEDS_PER_CELL": [1]},
+    "main_search": {**_MAIN_GRID_B, "SEEDS_PER_CELL": [20]},
+    "main_search_pilot": {**_MAIN_GRID_B, "SEEDS_PER_CELL": [1]},
+})
+
 # Overrides used by `python -m igss.run quick`: one short run of the base configuration.
 QUICK = {"GENERATIONS": 10, "SEEDS_PER_CELL": 1}
 

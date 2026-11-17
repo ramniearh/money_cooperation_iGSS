@@ -152,6 +152,47 @@ def test_broad_sweep_matches_spec():
     assert {c["E_ACTION"] for c in config.sweep_cells("broad_error")} == {0.0, 0.05, 0.1, 0.2}
 
 
+def test_main_batch_matches_spec():
+    # SPEC §14.8: grid A, grid B and their one-seed pilots, under aggregate scoring only.
+    expected = {"main": (1152, 115200), "main_pilot": (1152, 1152),
+                "main_search": (162, 3240), "main_search_pilot": (162, 162)}
+    for sweep_name, (n_cells, n_runs) in expected.items():
+        cells = config.sweep_cells(sweep_name)
+        assert len(cells) == n_cells, sweep_name
+        assert len(config.expand_sweep(sweep_name)) == n_runs, sweep_name
+        assert {c["SCORING"] for c in cells} == {"aggregate"}
+        assert {(c["MODE"], c["MODEL"]) for c in cells} == {
+            (mode, model) for mode in (1, 2, 3) for model in ("DR", "IR")}
+        assert {c["EPISODES_PER_SCORE"] for c in cells} == {1}
+
+    grid_a = config.sweep_cells("main")
+    assert {(c["N_C"], c["N_D"], c["B"], c["ROUNDS"], c["E_ACTION"]) for c in grid_a} == {
+        (n_c, n_d, b, r, e) for n_c in (0, 32) for n_d in (0, 32) for b in (2, 3, 5, 10)
+        for r in (100, 400, 1600) for e in (0.0, 0.05, 0.1, 0.2)}
+    assert {(c["GENERATIONS"], c["RULES_LOG_EVERY"]) for c in grid_a} == {(200, 50)}
+    base = config.BASE
+    assert any(all(c[k] == base[k] for k in ("N_C", "N_D", "B", "ROUNDS", "E_ACTION")) for c in grid_a)
+
+    grid_b = config.sweep_cells("main_search")
+    assert {(c["TOURNAMENT_SIZE"], c["DEPTH_LIMIT"], c["PARSIMONY_TAX"]) for c in grid_b} == {
+        (t, d, p) for t in (2, 3, 7) for d in (3, 5, 17) for p in (0.0, 0.01, 0.05)}
+    for c in grid_b:  # the base environment
+        assert all(c[k] == base[k] for k in ("N_C", "N_D", "B", "ROUNDS", "E_ACTION"))
+    assert {(c["GENERATIONS"], c["RULES_LOG_EVERY"]) for c in grid_b} == {(500, 10)}
+
+
+def test_pilot_runs_are_the_first_repetition_of_the_main_runs():
+    # SPEC §14.8: each pilot run is repetition 0 of the corresponding main run.
+    for main, pilot in (("main", "main_pilot"), ("main_search", "main_search_pilot")):
+        first_repetitions = [r for r in config.expand_sweep(main) if r["RUN_ID"].endswith("-000")]
+        pilot_runs = config.expand_sweep(pilot)
+        assert len(first_repetitions) == len(pilot_runs)
+        for full, short in zip(first_repetitions, pilot_runs):
+            ignore = ("SWEEP", "RUN_ID", "SEEDS_PER_CELL")
+            assert {k: v for k, v in full.items() if k not in ignore} == \
+                   {k: v for k, v in short.items() if k not in ignore}
+
+
 @pytest.mark.parametrize("key, other_model", [("IR_ASSESSMENT_RULE", "DR"),
                                               ("DR_ASSESSMENT_RULE", "IR")])
 def test_varying_a_models_assessment_rule_needs_that_model_alone(monkeypatch, key, other_model):
