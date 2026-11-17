@@ -4,7 +4,7 @@ This file is the single source of truth for rebuilding the iGSS code from scratc
 
 The code must match this file, and any mismatch is a bug. A change in behaviour is made here first, or in the same commit as the code, and is recorded in the change log (§18).
 
-- **Status:** v1.8.2, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
+- **Status:** v1.8.3, written alongside the first build of modes 1, 2 and 3 and the first exploratory sweeps.
   - Modes 1, 2 and 3 are specified and built. The main focus for now is aggregate scoring; individual scoring is built and kept as a separate question.
   - No results appear here.
 - **Every choice is listed** in the decision register (§13). A choice not written here must not be made silently in code.
@@ -483,6 +483,15 @@ The selected runs must share one scoring option. The figures are written to `<sw
 
 The first use was the environment N_C = N_D = 32, b = 3, e_action = 0.05 of `broad_aggregate`.
 
+**Figures of one parameter.** `R/factor_story.R` draws, in the same grid (one row per model, one column per mode), one stacked bar per value of a parameter: the share of runs in which each strategy name was alone the most common in the final generation, ties as their own category. Each `--panel` names a sweep directory, a parameter and a filter that fixes the sweep's other varying parameters; several panels share one figure, separated by thin lines. The parameter is a column of `runs.csv`, two columns joined by `+` (`n_c+n_d`), or `generation@g1,g2,…`, which reads `most_common_name` at those generations from `generations.csv` (a tie when `most_common` lists several). Only one scoring option is drawn (`--scoring`), and the script stops if a value mixes several values of another parameter.
+
+```
+Rscript R/factor_story.R --out <directory> --name <file name> --title <title> --scoring aggregate \
+    --panel "<sweep directory>|<parameter>|<name=value,...>" [--panel ...]
+```
+
+The first figures (D1 to D4, in `outputs/story_figures/`) show b, the background agents and e_action around the environment above (from `broad_aggregate`), and R, e_action, the search parameters and later generations around the base environment (from `broad_rounds`, `broad_error`, `broad_tournament`, `broad_depth`, `broad_parsimony` and `broad_long`).
+
 **A caution on "unnamed".** In modes 2 and 3 many unnamed strategies behave exactly like a named one. For example, with stored values starting at 1, the assessment rules `1111`, `1110`, `1011` and `1010` never produce a 0 (§14.2), so `10` with any of them acts as unconditional cooperation. F1 and F2 group by name and so show these as "unnamed"; T1 and T3 and the baseline (F3) show which strategies are behaviourally the same.
 
 ## 11. Build plan for mode 1
@@ -614,7 +623,8 @@ The legacy code drifted partly because choices were filled in silently: a defaul
 | Recovery criterion | one strategy alone is the most common in the final generation, and §16 names it as a reciprocity strategy of the model (in mode 1: `10`); ties reported separately | decided | majority over the last X generations; its share of the population |
 | Repository layout | as in §11 | proposed | — |
 | Tooling | Python 3.14; DEAP 1.4.3, SymPy 1.14.0 and pytest 9.2.0 pinned in `requirements.txt`. DEAP's operators define parts of the model, so its version is part of this specification. | assistant | — |
-| Figures | as in §10: `R/figures.R` for a whole sweep and `R/cell_story.R` for one environment; no images during runs; no drawing of expression trees yet (§15) | assistant | drawing expression trees, as the legacy code did (§15) |
+| Figures | as in §10: `R/figures.R` for a whole sweep, `R/cell_story.R` for one environment and `R/factor_story.R` for one parameter; no images during runs; no drawing of expression trees yet (§15) | assistant | drawing expression trees, as the legacy code did (§15) |
+| Figures of one parameter | D-figures (§10): the measure "ends most common", one bar per value; several parameters may share a figure. Asked for by an author to show the main effects of the broad sweeps beside the reference environment; the form is the assistant's. | assistant | "final share" as the measure; cooperation rates |
 | Figures for one environment | C1 to C5 (§10): one row per model, one column per mode; C4 lists the six best strategies in the baseline and any strategy a run ended on; C3 marks only the named strategies of the baseline. Asked for by an author as a way of presenting results to co-authors; the choice of figures is the assistant's. | assistant | other figures; more strategies in C4 |
 | Population sizes | N_I = N_C = N_D = 32 in the base configuration, with 0 cooperators or 0 defectors as further environments. Equal groups replace the 32/10/10 of v1.2, which had no motivation. | decided | 10/10/10, as the legacy code had, for speed; analytical results for mode 1 |
 | Literature names in output | `most_common_name` and `labels.csv`, derived from §16; a strategy §16 does not name is "unnamed" | assistant | — |
@@ -923,6 +933,7 @@ Newest first. Git history records every edit; this log records changes in meanin
 
 | Version | Date | Change |
 | --- | --- | --- |
+| v1.8.3 | 17 Nov 2026 | Figures of one parameter added (§10): `R/factor_story.R` draws the share of runs ending on each strategy name against one or more parameters, in the grid of models and modes. |
 | v1.8.2 | 17 Nov 2026 | Two notes for later added to §15, neither planned yet: a combined DR+IR model, with both stored values read by one action rule, and a "meta-ledger" after Schmid et al. (2021); and a version of the model after Frean and Marsland (2023) on money and score-mediated mutual consent. |
 | v1.8.1 | 17 Nov 2026 | Figures for one environment added (§10): `R/cell_story.R` draws C1 to C5, a compact grid of both models and all modes for one environment, for presenting results to co-authors. The fossil record and expression-tree drawings of the legacy code noted as a future addition (§15). |
 | v1.8 | 16 Nov 2026 | Corrections after a review. The classes `11/any` and `00/any` are simulated with the base assessment rule under aggregate scoring and in the baseline (§14.3), so their logged read counts no longer depend on the order of the population; scores are unchanged. A sweep that varies one model's assessment rule while running the other model is refused (§13). `composition.csv` and `rules.csv` now record the scoring option in every row (§10). The broad exploratory sweep (§14.7) is confirmed, with R varied in both models and a sweep of larger execution errors added as a proposal. |
